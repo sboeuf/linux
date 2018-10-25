@@ -79,27 +79,29 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 {
 	struct acpi_ged_event *event;
 	unsigned int irq;
-	unsigned int gsi;
+	unsigned int gsi = 0;
+	unsigned int index = 0;
 	unsigned int irqflags = IRQF_ONESHOT;
 	struct acpi_ged_device *geddev = context;
 	struct device *dev = geddev->dev;
 	acpi_handle handle = ACPI_HANDLE(dev);
 	acpi_handle evt_handle;
 	struct resource r;
-	struct acpi_resource_irq *p = &ares->data.irq;
-	struct acpi_resource_extended_irq *pext = &ares->data.extended_irq;
 
 	if (ares->type == ACPI_RESOURCE_TYPE_END_TAG)
 		return AE_OK;
 
-	if (!acpi_dev_resource_interrupt(ares, 0, &r)) {
+	if (!acpi_dev_resource_interrupt(ares, index, &r)) {
 		dev_err(dev, "unable to parse IRQ resource\n");
 		return AE_ERROR;
 	}
-	if (ares->type == ACPI_RESOURCE_TYPE_IRQ)
-		gsi = p->interrupts[0];
-	else
-		gsi = pext->interrupts[0];
+
+	switch (ares->type) {
+	case ACPI_RESOURCE_TYPE_IRQ:
+		gsi = ares->data.irq.interrupts[index];
+	case ACPI_RESOURCE_TYPE_EXTENDED_IRQ:
+		gsi = ares->data.extended_irq.interrupts[index];
+	}
 
 	irq = r.start;
 
@@ -142,10 +144,12 @@ static int ged_probe(struct platform_device *pdev)
 
 	geddev->dev = &pdev->dev;
 	INIT_LIST_HEAD(&geddev->event_list);
-	acpi_ret = acpi_walk_resources(ACPI_HANDLE(&pdev->dev), "_CRS",
+	acpi_ret = acpi_walk_resources(ACPI_HANDLE(&pdev->dev),
+				       METHOD_NAME__CRS,
 				       acpi_ged_request_interrupt, geddev);
 	if (ACPI_FAILURE(acpi_ret)) {
-		dev_err(&pdev->dev, "unable to parse the _CRS record\n");
+		dev_err(&pdev->dev, "unable to parse the %s record\n",
+			METHOD_NAME__CRS);
 		return -EINVAL;
 	}
 	platform_set_drvdata(pdev, geddev);
