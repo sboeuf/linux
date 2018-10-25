@@ -55,6 +55,8 @@ acpi_get_physical_device_location(acpi_handle handle, struct acpi_pld_info **pld
 bool acpi_has_method(acpi_handle handle, char *name);
 acpi_status acpi_execute_simple_method(acpi_handle handle, char *method,
 				       u64 arg);
+acpi_status acpi_evaluate_msi(acpi_handle handle, u64 gsi_id, u64 addr_hi,
+			      u64 addr_lo, u64 data);
 acpi_status acpi_evaluate_ej0(acpi_handle handle);
 acpi_status acpi_evaluate_lck(acpi_handle handle, int lock);
 bool acpi_ata_match(acpi_handle handle);
