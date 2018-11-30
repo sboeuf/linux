@@ -111,8 +111,9 @@ acpi_rs_move_data(void *destination, void *source, u16 item_count, u8 move_type)
 		case ACPI_RSC_MOVE_GPIO_RES:
 		case ACPI_RSC_MOVE_SERIAL_VEN:
 		case ACPI_RSC_MOVE_SERIAL_RES:
-
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB 1 ACPI_RSC_MOVE8: source %x, dest %x\n", ACPI_GET8(source), ACPI_GET8(destination)));
 			memcpy(destination, source, item_count);
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB 2 ACPI_RSC_MOVE8: source %x, dest %x\n", ACPI_GET8(source), ACPI_GET8(destination)));
 			return;
 
 			/*
@@ -122,21 +123,24 @@ acpi_rs_move_data(void *destination, void *source, u16 item_count, u8 move_type)
 			 */
 		case ACPI_RSC_MOVE16:
 		case ACPI_RSC_MOVE_GPIO_PIN:
-
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB ACPI_RSC_MOVE16: item_count %d\n", item_count));
 			ACPI_MOVE_16_TO_16(&ACPI_CAST_PTR(u16, destination)[i],
 					   &ACPI_CAST_PTR(u16, source)[i]);
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB ACPI_RSC_MOVE16\n"));
 			break;
 
 		case ACPI_RSC_MOVE32:
-
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB ACPI_RSC_MOVE32: item_count %d\n", item_count));
 			ACPI_MOVE_32_TO_32(&ACPI_CAST_PTR(u32, destination)[i],
 					   &ACPI_CAST_PTR(u32, source)[i]);
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB ACPI_RSC_MOVE32\n"));
 			break;
 
 		case ACPI_RSC_MOVE64:
-
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB ACPI_RSC_MOVE64: item_count %d\n", item_count));
 			ACPI_MOVE_64_TO_64(&ACPI_CAST_PTR(u64, destination)[i],
 					   &ACPI_CAST_PTR(u64, source)[i]);
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB ACPI_RSC_MOVE64\n"));
 			break;
 
 		default:
@@ -499,6 +503,7 @@ acpi_rs_get_crs_method_data(struct acpi_namespace_node *node,
 		return_ACPI_STATUS(status);
 	}
 
+	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_rs_get_crs_method_data() 1\n"));
 	/*
 	 * Make the call to create a resource linked list from the
 	 * byte stream buffer that comes back from the _CRS method
@@ -506,9 +511,12 @@ acpi_rs_get_crs_method_data(struct acpi_namespace_node *node,
 	 */
 	status = acpi_rs_create_resource_list(obj_desc, ret_buffer);
 
+	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_rs_get_crs_method_data() 2\n"));
+
 	/* On exit, we must delete the object returned by evaluateObject */
 
 	acpi_ut_remove_reference(obj_desc);
+	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_rs_get_crs_method_data() 3\n"));
 	return_ACPI_STATUS(status);
 }
 
@@ -654,6 +662,7 @@ acpi_rs_get_method_data(acpi_handle handle,
 		return_ACPI_STATUS(status);
 	}
 
+	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_rs_get_method_data() 1\n"));
 	/*
 	 * Make the call to create a resource linked list from the
 	 * byte stream buffer that comes back from the method
@@ -661,9 +670,12 @@ acpi_rs_get_method_data(acpi_handle handle,
 	 */
 	status = acpi_rs_create_resource_list(obj_desc, ret_buffer);
 
+	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_rs_get_method_data() 2\n"));
+
 	/* On exit, we must delete the object returned by evaluate_object */
 
 	acpi_ut_remove_reference(obj_desc);
+	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_rs_get_method_data() 3\n"));
 	return_ACPI_STATUS(status);
 }
 

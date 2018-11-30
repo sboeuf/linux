@@ -246,7 +246,7 @@ struct acpi_rsconvert_info acpi_rs_convert_msi_irq[9] = {
 
 	/* MSI global and unique ID (Byte4 to Byte11) */
 
-	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.msi_irq.msi_id),
+	{ACPI_RSC_MOVE64, ACPI_RS_OFFSET(data.msi_irq.msi_id),
 	 AML_OFFSET(msi_irq.msi_id),
 	 1},
 

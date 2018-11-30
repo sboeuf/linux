@@ -114,7 +114,7 @@ static const u8 acpi_gbl_resource_types[] = {
 	ACPI_VARIABLE_LENGTH,	/* 10 pin_group */
 	ACPI_VARIABLE_LENGTH,	/* 11 pin_group_function */
 	ACPI_VARIABLE_LENGTH,	/* 12 pin_group_config */
-	ACPI_FIXED_LENGTH,	/* 13 msi_irq */
+	ACPI_VARIABLE_LENGTH,	/* 13 msi_irq */
 };
 
 /*******************************************************************************
@@ -326,6 +326,7 @@ acpi_ut_validate_resource(struct acpi_walk_state *walk_state,
 		/* Fixed length resource, length must match exactly */
 
 		if (resource_length != minimum_resource_length) {
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB 1.1: res %d, min %d\n", resource_length, minimum_resource_length));
 			goto bad_resource_length;
 		}
 		break;
@@ -399,6 +400,7 @@ bad_resource_length:
 			    resource_type, resource_length,
 			    minimum_resource_length));
 	}
+	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB 1.4\n"));
 	return (AE_AML_BAD_RESOURCE_LENGTH);
 }
 

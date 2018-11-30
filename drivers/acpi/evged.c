@@ -73,12 +73,12 @@ struct acpi_ged_event {
 
 void ged_msi_unmask(struct irq_data *data)
 {
-	pr_debug("%s\n", __func__);
+	pr_warn("%s\n", __func__);
 }
 
 void ged_msi_mask(struct irq_data *data)
 {
-	pr_debug("%s\n", __func__);
+	pr_warn("%s\n", __func__);
 }
 
 static void ged_msi_write_msg(struct irq_data *data, struct msi_msg *msg)
@@ -86,7 +86,7 @@ static void ged_msi_write_msg(struct irq_data *data, struct msi_msg *msg)
 	struct irq_alloc_info *info;
 	struct acpi_ged_event *ev;
 
-	pr_debug("%s\n", __func__);
+	pr_warn("%s\n", __func__);
 
 	if (!data || !data->chip_data) {
 		pr_err("%s: missing chip_data", __func__);
@@ -100,7 +100,7 @@ static void ged_msi_write_msg(struct irq_data *data, struct msi_msg *msg)
 	}
 	ev = (struct acpi_ged_event *) info->data;
 
-	pr_debug("%s: address_lo = %x\taddress_hi = %x\tdata = %x\n",
+	pr_warn("%s: address_lo = %x\taddress_hi = %x\tdata = %x\n",
 		 __func__, msg->address_lo, msg->address_hi, msg->data);
 
 	if (ACPI_FAILURE(acpi_evaluate_msi(ACPI_HANDLE(ev->dev), ev->gsi,
@@ -116,7 +116,7 @@ static void ged_msi_compose_msg(struct irq_data *data, struct msi_msg *msg)
 {
 	struct irq_cfg *cfg;
 
-	pr_debug("%s\n", __func__);
+	pr_warn("%s\n", __func__);
 
 	cfg = irqd_cfg(data);
 
@@ -157,7 +157,7 @@ static irq_hw_number_t ged_msi_get_hwirq(struct msi_domain_info *info,
 {
 	struct acpi_ged_event *ev;
 
-	pr_debug("%s\n", __func__);
+	pr_warn("%s\n", __func__);
 
 	ev = (struct acpi_ged_event *) arg->data;
 	return ev->gsi;
@@ -167,7 +167,7 @@ static int ged_msi_init(struct irq_domain *domain,
 			struct msi_domain_info *info, unsigned int virq,
 			irq_hw_number_t hwirq, msi_alloc_info_t *arg)
 {
-	pr_debug("%s: virq %d\t hwirq %lu\n", __func__, virq, hwirq);
+	pr_warn("%s: virq %d\t hwirq %lu\n", __func__, virq, hwirq);
 	irq_set_status_flags(virq, IRQ_TYPE_EDGE_BOTH | IRQ_LEVEL);
 	irq_domain_set_info(domain, virq, hwirq, info->chip, arg,
 			    handle_edge_irq, NULL, "edge");
@@ -178,7 +178,7 @@ static int ged_msi_init(struct irq_domain *domain,
 static void ged_msi_free(struct irq_domain *domain,
 			 struct msi_domain_info *info, unsigned int virq)
 {
-	pr_debug("%s\n", __func__);
+	pr_warn("%s\n", __func__);
 	irq_clear_status_flags(virq, IRQ_TYPE_EDGE_BOTH | IRQ_LEVEL);
 }
 
@@ -198,7 +198,7 @@ static struct irq_domain *ged_create_msi_domain(uint64_t msi_id)
 	struct fwnode_handle *fn;
 	struct irq_domain *domain;
 
-	pr_debug("%s\n", __func__);
+	pr_warn("%s\n", __func__);
 
 	/* Create IRQ domain handler */
 	fn = irq_domain_alloc_named_id_fwnode(ged_msi_controller.name,
@@ -219,7 +219,7 @@ static irqreturn_t acpi_ged_irq_handler(int irq, void *data)
 	struct acpi_ged_event *event = data;
 	acpi_status acpi_ret;
 
-	dev_dbg(event->dev, "%s: IRQ = %d\n", __func__, irq);
+	dev_warn(event->dev, "%s: IRQ = %d\n", __func__, irq);
 
 	acpi_ret = acpi_execute_simple_method(event->handle, NULL, event->gsi);
 	if (ACPI_FAILURE(acpi_ret))
@@ -245,7 +245,8 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 	struct resource r;
 	struct irq_alloc_info info;
 
-	dev_dbg(dev, "%s\n", __func__);
+	pr_err("###SEB 1 acpi_ged_request_interrupt()\n");
+	dev_warn(dev, "%s\n", __func__);
 
 	if (ares->type == ACPI_RESOURCE_TYPE_END_TAG)
 		return AE_OK;
@@ -322,7 +323,7 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 		return AE_ERROR;
 	}
 
-	dev_dbg(dev, "GED listening GSI %u @ IRQ %u\n", gsi, irq);
+	dev_warn(dev, "GED listening GSI %u @ IRQ %u\n", gsi, irq);
 	list_add_tail(&event->node, &geddev->event_list);
 	return AE_OK;
 }
@@ -333,12 +334,16 @@ static int ged_probe(struct platform_device *pdev)
 	acpi_status acpi_ret;
 	struct device *dev = &pdev->dev;
 
+	pr_err("###SEB 1 ged_probe()\n");
+
 	geddev = devm_kzalloc(dev, sizeof(*geddev), GFP_KERNEL);
 	if (!geddev)
 		return -ENOMEM;
 
 	geddev->dev = dev;
 	INIT_LIST_HEAD(&geddev->event_list);
+
+	pr_err("###SEB 2 ged_probe()\n");
 
 	/* Initialise IRQ for each Interrupt() resource listed from DSDT */
 	acpi_ret = acpi_walk_resources(ACPI_HANDLE(dev), METHOD_NAME__CRS,
@@ -348,6 +353,7 @@ static int ged_probe(struct platform_device *pdev)
 			METHOD_NAME__CRS);
 		return -EINVAL;
 	}
+	pr_err("###SEB 3 ged_probe()\n");
 	platform_set_drvdata(pdev, geddev);
 
 	return 0;
@@ -367,7 +373,7 @@ static void ged_shutdown(struct platform_device *pdev)
 			free_irq(event->irq, event);
 
 		list_del(&event->node);
-		dev_dbg(dev, "GED releasing GSI %u @ IRQ %u\n",
+		dev_warn(dev, "GED releasing GSI %u @ IRQ %u\n",
 			 event->gsi, event->irq);
 	}
 }

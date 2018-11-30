@@ -463,6 +463,7 @@ acpi_rs_get_list_length(u8 *aml_buffer,
 
 		/* Validate the Resource Type and Resource Length */
 
+		ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB 1\n"));
 		status =
 		    acpi_ut_validate_resource(NULL, aml_buffer,
 					      &resource_index);
@@ -471,6 +472,7 @@ acpi_rs_get_list_length(u8 *aml_buffer,
 			 * Exit on failure. Cannot continue because the descriptor length
 			 * may be bogus also.
 			 */
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB 2\n"));
 			return_ACPI_STATUS(status);
 		}
 
@@ -648,6 +650,9 @@ acpi_rs_get_list_length(u8 *aml_buffer,
 			    aml_resource->pin_group_config.res_source_offset +
 			    aml_resource->pin_group_config.vendor_length;
 
+			break;
+
+		case ACPI_RESOURCE_NAME_MSI_IRQ:
 			break;
 
 		default:
