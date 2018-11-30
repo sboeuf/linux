@@ -395,6 +395,11 @@ static void acpi_dev_irqresource_disabled(struct resource *res, u32 gsi)
 	res->flags = IORESOURCE_IRQ | IORESOURCE_DISABLED | IORESOURCE_UNSET;
 }
 
+static void acpi_dev_msi_irqresource_disabled(struct resource *res)
+{
+	res->flags = IORESOURCE_IRQ | IORESOURCE_DISABLED | IORESOURCE_UNSET;
+}
+
 static void acpi_dev_get_irqresource(struct resource *res, u32 gsi,
 				     u8 triggering, u8 polarity, u8 shareable,
 				     bool legacy)
@@ -438,6 +443,12 @@ static void acpi_dev_get_irqresource(struct resource *res, u32 gsi,
 	}
 }
 
+static void acpi_dev_get_msi_irqresource(struct resource *res, u8 triggering,
+					 u8 polarity, u8 shareable)
+{
+	res->flags = acpi_dev_irq_flags(triggering, polarity, shareable);
+}
+
 /**
  * acpi_dev_resource_interrupt - Extract ACPI interrupt resource information.
  * @ares: Input ACPI resource object.
@@ -462,6 +473,7 @@ bool acpi_dev_resource_interrupt(struct acpi_resource *ares, int index,
 {
 	struct acpi_resource_irq *irq;
 	struct acpi_resource_extended_irq *ext_irq;
+	struct acpi_resource_msi_irq *msi_irq;
 
 	switch (ares->type) {
 	case ACPI_RESOURCE_TYPE_IRQ:
@@ -490,6 +502,16 @@ bool acpi_dev_resource_interrupt(struct acpi_resource *ares, int index,
 					 ext_irq->sharable, false);
 		else
 			acpi_dev_irqresource_disabled(res, 0);
+		break;
+	case ACPI_RESOURCE_TYPE_MSI_IRQ:
+		msi_irq = &ares->data.msi_irq;
+		if (msi_irq->vect_count <= 0) {
+			acpi_dev_msi_irqresource_disabled(res);
+			return false;
+		}
+		acpi_dev_get_msi_irqresource(res, msi_irq->triggering,
+					     msi_irq->polarity,
+					     msi_irq->sharable);
 		break;
 	default:
 		res->flags = 0;

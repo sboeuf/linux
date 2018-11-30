@@ -52,10 +52,7 @@
 #include <asm/apic.h>
 #include <asm/msidef.h>
 
-#define MODULE_NAME    "acpi-ged"
-#define GED_MSI_ID     12345
-#define GSI_MSI_VAL    0xFF
-#define NR_IRQ_PER_RES 1
+#define MODULE_NAME	"acpi-ged"
 
 struct acpi_ged_device {
 	struct device *dev;
@@ -158,8 +155,12 @@ static struct irq_chip ged_msi_controller __ro_after_init = {
 static irq_hw_number_t ged_msi_get_hwirq(struct msi_domain_info *info,
 					 msi_alloc_info_t *arg)
 {
+	struct acpi_ged_event *ev;
+
 	pr_debug("%s\n", __func__);
-	return GED_MSI_ID;
+
+	ev = (struct acpi_ged_event *) arg->data;
+	return ev->gsi;
 }
 
 static int ged_msi_init(struct irq_domain *domain,
@@ -192,7 +193,7 @@ static struct msi_domain_info ged_msi_domain_info = {
 	.chip	= &ged_msi_controller,
 };
 
-static struct irq_domain *ged_create_msi_domain(void)
+static struct irq_domain *ged_create_msi_domain(uint64_t msi_id)
 {
 	struct fwnode_handle *fn;
 	struct irq_domain *domain;
@@ -201,7 +202,7 @@ static struct irq_domain *ged_create_msi_domain(void)
 
 	/* Create IRQ domain handler */
 	fn = irq_domain_alloc_named_id_fwnode(ged_msi_controller.name,
-					      GED_MSI_ID);
+					      msi_id);
 	if (!fn)
 		return NULL;
 
@@ -233,6 +234,7 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 	struct acpi_ged_event *event;
 	unsigned int irq;
 	int virq;
+	int vect_count = 0;
 	unsigned int gsi = 0;
 	unsigned int index = 0;
 	unsigned int irqflags = IRQF_ONESHOT;
@@ -256,8 +258,26 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 	switch (ares->type) {
 	case ACPI_RESOURCE_TYPE_IRQ:
 		gsi = ares->data.irq.interrupts[index];
+		break;
 	case ACPI_RESOURCE_TYPE_EXTENDED_IRQ:
 		gsi = ares->data.extended_irq.interrupts[index];
+		break;
+	case ACPI_RESOURCE_TYPE_MSI_IRQ:
+		gsi = ares->data.msi_irq.msi_id;
+		vect_count = ares->data.msi_irq.vect_count;
+
+		if (dev->msi_domain)
+			break;
+
+		/* Check if ACPI provides MSI support */
+		if (acpi_has_method(ACPI_HANDLE(dev), METHOD_NAME__MSI)) {
+			/* Create MSI domain */
+			dev->msi_domain = ged_create_msi_domain(gsi);
+			if (!dev->msi_domain)
+				return AE_ERROR;
+		}
+
+		break;
 	}
 
 	irq = r.start;
@@ -277,10 +297,11 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 
 	/* Use MSI if the MSI domain does exist */
 	if (dev->msi_domain) {
+		
 		init_irq_alloc_info(&info, NULL);
 		info.data = event;
 		virq = irq_domain_alloc_irqs(dev->msi_domain,
-					    NR_IRQ_PER_RES,
+					    vect_count,
 					    NUMA_NO_NODE,
 					    &info);
 		if (virq < 0)
@@ -318,14 +339,6 @@ static int ged_probe(struct platform_device *pdev)
 
 	geddev->dev = dev;
 	INIT_LIST_HEAD(&geddev->event_list);
-
-	/* Check if ACPI provides MSI support */
-	if (acpi_has_method(ACPI_HANDLE(dev), METHOD_NAME__MSI)) {
-		/* Create MSI domain */
-		dev->msi_domain = ged_create_msi_domain();
-		if (!dev->msi_domain)
-			return -EINVAL;
-	}
 
 	/* Initialise IRQ for each Interrupt() resource listed from DSDT */
 	acpi_ret = acpi_walk_resources(ACPI_HANDLE(dev), METHOD_NAME__CRS,
