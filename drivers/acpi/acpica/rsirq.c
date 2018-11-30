@@ -244,17 +244,17 @@ struct acpi_rsconvert_info acpi_rs_convert_msi_irq[9] = {
 	 AML_OFFSET(msi_irq.flags),
 	 4},
 
-	/* MSI global and unique ID (Byte4, Byte5, Byte6, Byte7) */
+	/* MSI global and unique ID (Byte4 to Byte11) */
 
-	{ACPI_RSC_MOVE64, ACPI_RS_OFFSET(data.msi_irq.msi_id),
+	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.msi_irq.msi_id),
 	 AML_OFFSET(msi_irq.msi_id),
-	 0},
+	 1},
 
-	/* Number of IRQs per vector (Byte8) */
+	/* Number of IRQs per vector (Byte12) */
 
 	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.msi_irq.vect_count),
 	 AML_OFFSET(msi_irq.vect_count),
-	 0},
+	 1},
 };
 
 /*******************************************************************************
