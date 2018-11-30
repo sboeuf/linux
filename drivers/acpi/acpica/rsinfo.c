@@ -49,6 +49,7 @@ struct acpi_rsconvert_info *acpi_gbl_set_resource_dispatch[] = {
 	acpi_rs_convert_pin_group,	/* 0x16, ACPI_RESOURCE_TYPE_PIN_GROUP */
 	acpi_rs_convert_pin_group_function,	/* 0x17, ACPI_RESOURCE_TYPE_PIN_GROUP_FUNCTION */
 	acpi_rs_convert_pin_group_config,	/* 0x18, ACPI_RESOURCE_TYPE_PIN_GROUP_CONFIG */
+	acpi_rs_convert_msi_irq,	/* 0x19, ACPI_RESOURCE_TYPE_MSI_IRQ */
 };
 
 /* Dispatch tables for AML-to-resource (Get Resource) conversion functions */
@@ -94,6 +95,7 @@ struct acpi_rsconvert_info *acpi_gbl_get_resource_dispatch[] = {
 	acpi_rs_convert_pin_group,	/* 0x10, ACPI_RESOURCE_NAME_PIN_GROUP */
 	acpi_rs_convert_pin_group_function,	/* 0x11, ACPI_RESOURCE_NAME_PIN_GROUP_FUNCTION */
 	acpi_rs_convert_pin_group_config,	/* 0x12, ACPI_RESOURCE_NAME_PIN_GROUP_CONFIG */
+	acpi_rs_convert_msi_irq,	/* 0x13, ACPI_RESOURCE_NAME_MSI_IRQ */
 };
 
 /* Subtype table for serial_bus -- I2C, SPI, and UART */
@@ -135,6 +137,7 @@ struct acpi_rsdump_info *acpi_gbl_dump_resource_dispatch[] = {
 	acpi_rs_dump_pin_group,	/* ACPI_RESOURCE_TYPE_PIN_GROUP */
 	acpi_rs_dump_pin_group_function,	/* ACPI_RESOURCE_TYPE_PIN_GROUP_FUNCTION */
 	acpi_rs_dump_pin_group_config,	/* ACPI_RESOURCE_TYPE_PIN_GROUP_CONFIG */
+	acpi_rs_dump_msi_irq,	/* ACPI_RESOURCE_TYPE_MSI_IRQ */
 };
 
 struct acpi_rsdump_info *acpi_gbl_dump_serial_bus_dispatch[] = {
@@ -176,6 +179,7 @@ const u8 acpi_gbl_aml_resource_sizes[] = {
 	sizeof(struct aml_resource_pin_group),	/* ACPI_RESOURCE_TYPE_PIN_GROUP */
 	sizeof(struct aml_resource_pin_group_function),	/* ACPI_RESOURCE_TYPE_PIN_GROUP_FUNCTION */
 	sizeof(struct aml_resource_pin_group_config),	/* ACPI_RESOURCE_TYPE_PIN_GROUP_CONFIG */
+	sizeof(struct aml_resource_msi_irq),	/* ACPI_RESOURCE_TYPE_MSI_IRQ */
 };
 
 const u8 acpi_gbl_resource_struct_sizes[] = {
@@ -219,6 +223,7 @@ const u8 acpi_gbl_resource_struct_sizes[] = {
 	ACPI_RS_SIZE(struct acpi_resource_pin_group),
 	ACPI_RS_SIZE(struct acpi_resource_pin_group_function),
 	ACPI_RS_SIZE(struct acpi_resource_pin_group_config),
+	ACPI_RS_SIZE(struct acpi_resource_msi_irq),
 };
 
 const u8 acpi_gbl_aml_resource_serial_bus_sizes[] = {

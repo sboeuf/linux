@@ -207,6 +207,58 @@ struct acpi_rsconvert_info acpi_rs_convert_ext_irq[10] = {
 
 /*******************************************************************************
  *
+ * acpi_rs_convert_msi_irq
+ *
+ ******************************************************************************/
+
+struct acpi_rsconvert_info acpi_rs_convert_msi_irq[9] = {
+	{ACPI_RSC_INITGET, ACPI_RESOURCE_TYPE_MSI_IRQ,
+	 ACPI_RS_SIZE(struct acpi_resource_msi_irq),
+	 ACPI_RSC_TABLE_SIZE(acpi_rs_convert_msi_irq)},
+
+	{ACPI_RSC_INITSET, ACPI_RESOURCE_NAME_MSI_IRQ,
+	 sizeof(struct aml_resource_msi_irq),
+	 0},
+
+	/*
+	 * Flags (Byte3): Producer/Consumer[0], Triggering[1], Polarity[2],
+	 *        Sharing[3], Wake[4]
+	 */
+	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.msi_irq.producer_consumer),
+	 AML_OFFSET(msi_irq.flags),
+	 0},
+
+	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.msi_irq.triggering),
+	 AML_OFFSET(msi_irq.flags),
+	 1},
+
+	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.msi_irq.polarity),
+	 AML_OFFSET(msi_irq.flags),
+	 2},
+
+	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.msi_irq.sharable),
+	 AML_OFFSET(msi_irq.flags),
+	 3},
+
+	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.msi_irq.wake_capable),
+	 AML_OFFSET(msi_irq.flags),
+	 4},
+
+	/* MSI global and unique ID (Byte4, Byte5, Byte6, Byte7) */
+
+	{ACPI_RSC_MOVE64, ACPI_RS_OFFSET(data.msi_irq.msi_id),
+	 AML_OFFSET(msi_irq.msi_id),
+	 0},
+
+	/* Number of IRQs per vector (Byte8) */
+
+	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.msi_irq.vect_count),
+	 AML_OFFSET(msi_irq.vect_count),
+	 0},
+};
+
+/*******************************************************************************
+ *
  * acpi_rs_convert_dma
  *
  ******************************************************************************/
