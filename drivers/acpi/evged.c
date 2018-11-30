@@ -52,10 +52,7 @@
 #include <asm/apic.h>
 #include <asm/msidef.h>
 
-#define MODULE_NAME    "acpi-ged"
-#define GED_MSI_ID     12345
-#define GSI_MSI_VAL    0xFF
-#define NR_IRQ_PER_RES 1
+#define MODULE_NAME	"acpi-ged"
 
 struct acpi_ged_device {
 	struct device *dev;
@@ -88,6 +85,12 @@ static void ged_msi_write_msg(struct irq_data *data, struct msi_msg *msg)
 {
 	struct irq_alloc_info *info;
 	struct acpi_ged_event *ev;
+	u64 msi_addr;
+	struct {
+		struct acpi_resource res;
+		struct acpi_resource end;
+	} *resource;
+	struct acpi_buffer buffer = { 0, NULL };
 
 	pr_debug("%s\n", __func__);
 
@@ -106,13 +109,37 @@ static void ged_msi_write_msg(struct irq_data *data, struct msi_msg *msg)
 	pr_debug("%s: address_lo = %x\taddress_hi = %x\tdata = %x\n",
 		 __func__, msg->address_lo, msg->address_hi, msg->data);
 
-	if (ACPI_FAILURE(acpi_evaluate_msi(ACPI_HANDLE(ev->dev), ev->gsi,
-					   msg->address_hi, msg->address_lo,
-					   msg->data))) {
-		dev_err(ev->dev, "%s method execution failed\n",
-			METHOD_NAME__MSI);
+	/* Build the resource */
+	msi_addr = ((u64)msg->address_hi << 32) | ((u64)msg->address_lo & 0xffffffff);
+
+	resource = kzalloc(sizeof(*resource) + 1, irqs_disabled() ? GFP_ATOMIC: GFP_KERNEL);
+	if (!resource) {
+		pr_err("%s: failed to allocate memory", __func__);
 		return;
 	}
+
+	buffer.length = sizeof(*resource) + 1;
+	buffer.pointer = resource;
+
+	resource->res.type = ACPI_RESOURCE_TYPE_MSI_IRQ;
+	resource->res.length = sizeof(struct acpi_resource);
+	resource->res.data.msi_irq.addr_min = msi_addr;
+	resource->res.data.msi_irq.addr_max = msi_addr;
+	resource->res.data.msi_irq.data_min = msg->data;
+	resource->res.data.msi_irq.data_max = msg->data;
+	resource->res.data.msi_irq.tag = ev->gsi;
+
+	resource->end.type = ACPI_RESOURCE_TYPE_END_TAG;
+	resource->end.length = sizeof(struct acpi_resource);
+
+	/* Set the resource by evaluating _SRS */
+	if (ACPI_FAILURE(acpi_set_current_resources(ACPI_HANDLE(ev->dev), &buffer))) {
+		pr_err("%s: failed to evaluate _SRS", __func__);
+		goto end;
+	}
+
+      end:
+	kfree(resource);
 }
 
 static void ged_msi_compose_msg(struct irq_data *data, struct msi_msg *msg)
@@ -158,8 +185,12 @@ static struct irq_chip ged_msi_controller __ro_after_init = {
 static irq_hw_number_t ged_msi_get_hwirq(struct msi_domain_info *info,
 					 msi_alloc_info_t *arg)
 {
+	struct acpi_ged_event *ev;
+
 	pr_debug("%s\n", __func__);
-	return GED_MSI_ID;
+
+	ev = (struct acpi_ged_event *) arg->data;
+	return ev->gsi;
 }
 
 static int ged_msi_init(struct irq_domain *domain,
@@ -192,7 +223,7 @@ static struct msi_domain_info ged_msi_domain_info = {
 	.chip	= &ged_msi_controller,
 };
 
-static struct irq_domain *ged_create_msi_domain(void)
+static struct irq_domain *ged_create_msi_domain(uint64_t msi_id)
 {
 	struct fwnode_handle *fn;
 	struct irq_domain *domain;
@@ -201,7 +232,7 @@ static struct irq_domain *ged_create_msi_domain(void)
 
 	/* Create IRQ domain handler */
 	fn = irq_domain_alloc_named_id_fwnode(ged_msi_controller.name,
-					      GED_MSI_ID);
+					      msi_id);
 	if (!fn)
 		return NULL;
 
@@ -256,8 +287,25 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 	switch (ares->type) {
 	case ACPI_RESOURCE_TYPE_IRQ:
 		gsi = ares->data.irq.interrupts[index];
+		break;
 	case ACPI_RESOURCE_TYPE_EXTENDED_IRQ:
 		gsi = ares->data.extended_irq.interrupts[index];
+		break;
+	case ACPI_RESOURCE_TYPE_MSI_IRQ:
+		/* Check if ACPI provides MSI support */
+		if (!acpi_has_method(ACPI_HANDLE(dev), METHOD_NAME__SRS))
+			return AE_ERROR;
+
+		gsi = ares->data.msi_irq.tag;
+
+		if (!dev->msi_domain) {
+			/* Create MSI domain */
+			dev->msi_domain = ged_create_msi_domain(gsi);
+			if (!dev->msi_domain)
+				return AE_ERROR;
+		}
+
+		break;
 	}
 
 	irq = r.start;
@@ -279,10 +327,8 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 	if (dev->msi_domain) {
 		init_irq_alloc_info(&info, NULL);
 		info.data = event;
-		virq = irq_domain_alloc_irqs(dev->msi_domain,
-					    NR_IRQ_PER_RES,
-					    NUMA_NO_NODE,
-					    &info);
+		virq = irq_domain_alloc_irqs(dev->msi_domain, 1, NUMA_NO_NODE,
+					     &info);
 		if (virq < 0)
 			return AE_ERROR;
 
@@ -318,14 +364,6 @@ static int ged_probe(struct platform_device *pdev)
 
 	geddev->dev = dev;
 	INIT_LIST_HEAD(&geddev->event_list);
-
-	/* Check if ACPI provides MSI support */
-	if (acpi_has_method(ACPI_HANDLE(dev), METHOD_NAME__MSI)) {
-		/* Create MSI domain */
-		dev->msi_domain = ged_create_msi_domain();
-		if (!dev->msi_domain)
-			return -EINVAL;
-	}
 
 	/* Initialise IRQ for each Interrupt() resource listed from DSDT */
 	acpi_ret = acpi_walk_resources(ACPI_HANDLE(dev), METHOD_NAME__CRS,
