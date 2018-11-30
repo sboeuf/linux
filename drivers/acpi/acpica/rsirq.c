@@ -207,6 +207,52 @@ struct acpi_rsconvert_info acpi_rs_convert_ext_irq[10] = {
 
 /*******************************************************************************
  *
+ * acpi_rs_convert_msi_irq
+ *
+ ******************************************************************************/
+
+struct acpi_rsconvert_info acpi_rs_convert_msi_irq[7] = {
+	{ACPI_RSC_INITGET, ACPI_RESOURCE_TYPE_MSI_IRQ,
+	 ACPI_RS_SIZE(struct acpi_resource_msi_irq),
+	 ACPI_RSC_TABLE_SIZE(acpi_rs_convert_msi_irq)},
+
+	{ACPI_RSC_INITSET, ACPI_RESOURCE_NAME_MSI_IRQ,
+	 sizeof(struct aml_resource_msi_irq),
+	 0},
+
+	/* MSI minimum address (Byte3 to Byte10) */
+
+	{ACPI_RSC_MOVE64, ACPI_RS_OFFSET(data.msi_irq.addr_min),
+	 AML_OFFSET(msi_irq.addr_min),
+	 1},
+
+	/* MSI maximum address (Byte11 to Byte18) */
+
+	{ACPI_RSC_MOVE64, ACPI_RS_OFFSET(data.msi_irq.addr_max),
+	 AML_OFFSET(msi_irq.addr_max),
+	 1},
+
+	/* MSI minimum data (Byte19 to Byte22) */
+
+	{ACPI_RSC_MOVE32, ACPI_RS_OFFSET(data.msi_irq.data_min),
+	 AML_OFFSET(msi_irq.data_min),
+	 1},
+
+	/* MSI maximum data (Byte23 to Byte26) */
+
+	{ACPI_RSC_MOVE32, ACPI_RS_OFFSET(data.msi_irq.data_max),
+	 AML_OFFSET(msi_irq.data_max),
+	 1},
+
+	/* MSI global and unique ID (Byte27 to Byte30) */
+
+	{ACPI_RSC_MOVE32, ACPI_RS_OFFSET(data.msi_irq.tag),
+	 AML_OFFSET(msi_irq.tag),
+	 1},
+};
+
+/*******************************************************************************
+ *
  * acpi_rs_convert_dma
  *
  ******************************************************************************/

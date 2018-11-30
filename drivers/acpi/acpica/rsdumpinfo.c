@@ -392,6 +392,21 @@ struct acpi_rsdump_info acpi_rs_dump_pin_group_config[10] = {
 	 "VendorData", NULL},
 };
 
+struct acpi_rsdump_info acpi_rs_dump_msi_irq[6] = {
+	{ACPI_RSD_TITLE, ACPI_RSD_TABLE_SIZE(acpi_rs_dump_msi_irq),
+	 "MSI IRQ", NULL},
+	{ACPI_RSD_UINT64, ACPI_RSD_OFFSET(msi_irq.addr_min),
+	 "MSI minimum address", NULL},
+	{ACPI_RSD_UINT64, ACPI_RSD_OFFSET(msi_irq.addr_max),
+	 "MSI maximum address", NULL},
+	{ACPI_RSD_UINT32, ACPI_RSD_OFFSET(msi_irq.data_min),
+	 "MSI minimum data", NULL},
+	{ACPI_RSD_UINT32, ACPI_RSD_OFFSET(msi_irq.data_max),
+	 "MSI maximum data", NULL},
+	{ACPI_RSD_UINT32, ACPI_RSD_OFFSET(msi_irq.tag),
+	 "MSI unique identifier", NULL},
+};
+
 struct acpi_rsdump_info acpi_rs_dump_fixed_dma[4] = {
 	{ACPI_RSD_TITLE, ACPI_RSD_TABLE_SIZE(acpi_rs_dump_fixed_dma),
 	 "FixedDma", NULL},

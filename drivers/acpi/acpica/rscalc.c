@@ -650,6 +650,9 @@ acpi_rs_get_list_length(u8 *aml_buffer,
 
 			break;
 
+		case ACPI_RESOURCE_NAME_MSI_IRQ:
+			break;
+
 		default:
 
 			break;

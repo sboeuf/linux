@@ -580,6 +580,14 @@ struct acpi_resource_pin_group_config {
 	u8 *vendor_data;
 };
 
+struct acpi_resource_msi_irq {
+	u64 addr_min;
+	u64 addr_max;
+	u32 data_min;
+	u32 data_max;
+	u32 tag;
+};
+
 /* ACPI_RESOURCE_TYPEs */
 
 #define ACPI_RESOURCE_TYPE_IRQ                  0
@@ -607,7 +615,8 @@ struct acpi_resource_pin_group_config {
 #define ACPI_RESOURCE_TYPE_PIN_GROUP            22	/* ACPI 6.2 */
 #define ACPI_RESOURCE_TYPE_PIN_GROUP_FUNCTION   23	/* ACPI 6.2 */
 #define ACPI_RESOURCE_TYPE_PIN_GROUP_CONFIG     24	/* ACPI 6.2 */
-#define ACPI_RESOURCE_TYPE_MAX                  24
+#define ACPI_RESOURCE_TYPE_MSI_IRQ              25
+#define ACPI_RESOURCE_TYPE_MAX                  25
 
 /* Master union for resource descriptors */
 
@@ -640,6 +649,7 @@ union acpi_resource_data {
 	struct acpi_resource_pin_group pin_group;
 	struct acpi_resource_pin_group_function pin_group_function;
 	struct acpi_resource_pin_group_config pin_group_config;
+	struct acpi_resource_msi_irq msi_irq;
 
 	/* Common fields */
 
