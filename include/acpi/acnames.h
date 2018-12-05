@@ -25,6 +25,7 @@
 #define METHOD_NAME__INI        "_INI"
 #define METHOD_NAME__PLD        "_PLD"
 #define METHOD_NAME__DSD        "_DSD"
+#define METHOD_NAME__MSI        "_MSI"
 #define METHOD_NAME__PRS        "_PRS"
 #define METHOD_NAME__PRT        "_PRT"
 #define METHOD_NAME__PRW        "_PRW"

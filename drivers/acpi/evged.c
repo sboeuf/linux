@@ -46,6 +46,11 @@
 #include <linux/list.h>
 #include <linux/platform_device.h>
 #include <linux/acpi.h>
+#include <linux/msi.h>
+#include <linux/irq.h>
+#include <linux/delay.h>
+#include <asm/apic.h>
+#include <asm/msidef.h>
 
 #define MODULE_NAME	"acpi-ged"
 
@@ -62,10 +67,159 @@ struct acpi_ged_event {
 	acpi_handle handle;
 };
 
+/*
+ * MSI related functions
+ */
+
+void ged_msi_unmask(struct irq_data *data)
+{
+	pr_warn("%s\n", __func__);
+}
+
+void ged_msi_mask(struct irq_data *data)
+{
+	pr_warn("%s\n", __func__);
+}
+
+static void ged_msi_write_msg(struct irq_data *data, struct msi_msg *msg)
+{
+	struct irq_alloc_info *info;
+	struct acpi_ged_event *ev;
+
+	pr_warn("%s\n", __func__);
+
+	if (!data || !data->chip_data) {
+		pr_err("%s: missing chip_data", __func__);
+		return;
+	}
+	info = (struct irq_alloc_info *) data->chip_data;
+
+	if (!info->data) {
+		pr_err("%s: missing data", __func__);
+		return;
+	}
+	ev = (struct acpi_ged_event *) info->data;
+
+	pr_warn("%s: address_lo = %x\taddress_hi = %x\tdata = %x\n",
+		 __func__, msg->address_lo, msg->address_hi, msg->data);
+
+	if (ACPI_FAILURE(acpi_evaluate_msi(ACPI_HANDLE(ev->dev), ev->gsi,
+					   msg->address_hi, msg->address_lo,
+					   msg->data))) {
+		dev_err(ev->dev, "%s method execution failed\n",
+			METHOD_NAME__MSI);
+		return;
+	}
+}
+
+static void ged_msi_compose_msg(struct irq_data *data, struct msi_msg *msg)
+{
+	struct irq_cfg *cfg;
+
+	pr_warn("%s\n", __func__);
+
+	cfg = irqd_cfg(data);
+
+	msg->address_hi = MSI_ADDR_BASE_HI;
+
+	if (x2apic_enabled())
+		msg->address_hi |= MSI_ADDR_EXT_DEST_ID(cfg->dest_apicid);
+
+	msg->address_lo =
+		MSI_ADDR_BASE_LO |
+		((apic->irq_dest_mode == 0) ?
+			MSI_ADDR_DEST_MODE_PHYSICAL :
+			MSI_ADDR_DEST_MODE_LOGICAL) |
+		MSI_ADDR_REDIRECTION_CPU |
+		MSI_ADDR_DEST_ID(cfg->dest_apicid);
+
+	msg->data =
+		MSI_DATA_TRIGGER_EDGE |
+		MSI_DATA_LEVEL_ASSERT |
+		MSI_DATA_DELIVERY_FIXED |
+		MSI_DATA_VECTOR(cfg->vector);
+}
+
+static struct irq_chip ged_msi_controller __ro_after_init = {
+	.name			= "GED-MSI",
+	.irq_unmask		= ged_msi_unmask,
+	.irq_mask		= ged_msi_mask,
+	.irq_ack		= irq_chip_ack_parent,
+	.irq_set_affinity	= msi_domain_set_affinity,
+	.irq_retrigger		= irq_chip_retrigger_hierarchy,
+	.irq_compose_msi_msg	= ged_msi_compose_msg,
+	.irq_write_msi_msg	= ged_msi_write_msg,
+	.flags			= IRQCHIP_SKIP_SET_WAKE,
+};
+
+static irq_hw_number_t ged_msi_get_hwirq(struct msi_domain_info *info,
+					 msi_alloc_info_t *arg)
+{
+	struct acpi_ged_event *ev;
+
+	pr_warn("%s\n", __func__);
+
+	ev = (struct acpi_ged_event *) arg->data;
+	return ev->gsi;
+}
+
+static int ged_msi_init(struct irq_domain *domain,
+			struct msi_domain_info *info, unsigned int virq,
+			irq_hw_number_t hwirq, msi_alloc_info_t *arg)
+{
+	pr_warn("%s: virq %d\t hwirq %lu\n", __func__, virq, hwirq);
+	irq_set_status_flags(virq, IRQ_TYPE_EDGE_BOTH | IRQ_LEVEL);
+	irq_domain_set_info(domain, virq, hwirq, info->chip, arg,
+			    handle_edge_irq, NULL, "edge");
+
+	return 0;
+}
+
+static void ged_msi_free(struct irq_domain *domain,
+			 struct msi_domain_info *info, unsigned int virq)
+{
+	pr_warn("%s\n", __func__);
+	irq_clear_status_flags(virq, IRQ_TYPE_EDGE_BOTH | IRQ_LEVEL);
+}
+
+static struct msi_domain_ops ged_msi_domain_ops = {
+	.get_hwirq	= ged_msi_get_hwirq,
+	.msi_init	= ged_msi_init,
+	.msi_free	= ged_msi_free,
+};
+
+static struct msi_domain_info ged_msi_domain_info = {
+	.ops	= &ged_msi_domain_ops,
+	.chip	= &ged_msi_controller,
+};
+
+static struct irq_domain *ged_create_msi_domain(uint64_t msi_id)
+{
+	struct fwnode_handle *fn;
+	struct irq_domain *domain;
+
+	pr_warn("%s\n", __func__);
+
+	/* Create IRQ domain handler */
+	fn = irq_domain_alloc_named_id_fwnode(ged_msi_controller.name,
+					      msi_id);
+	if (!fn)
+		return NULL;
+
+	/* Create platform MSI domain */
+	domain = msi_create_irq_domain(fn,
+				       &ged_msi_domain_info,
+				       x86_vector_domain);
+	irq_domain_free_fwnode(fn);
+	return domain;
+}
+
 static irqreturn_t acpi_ged_irq_handler(int irq, void *data)
 {
 	struct acpi_ged_event *event = data;
 	acpi_status acpi_ret;
+
+	dev_warn(event->dev, "%s: IRQ = %d\n", __func__, irq);
 
 	acpi_ret = acpi_execute_simple_method(event->handle, NULL, event->gsi);
 	if (ACPI_FAILURE(acpi_ret))
@@ -79,27 +233,53 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 {
 	struct acpi_ged_event *event;
 	unsigned int irq;
-	unsigned int gsi;
+	int virq;
+	int vect_count = 0;
+	unsigned int gsi = 0;
+	unsigned int index = 0;
 	unsigned int irqflags = IRQF_ONESHOT;
 	struct acpi_ged_device *geddev = context;
 	struct device *dev = geddev->dev;
 	acpi_handle handle = ACPI_HANDLE(dev);
 	acpi_handle evt_handle;
 	struct resource r;
-	struct acpi_resource_irq *p = &ares->data.irq;
-	struct acpi_resource_extended_irq *pext = &ares->data.extended_irq;
+	struct irq_alloc_info info;
+
+	pr_err("###SEB 1 acpi_ged_request_interrupt()\n");
+	dev_warn(dev, "%s\n", __func__);
 
 	if (ares->type == ACPI_RESOURCE_TYPE_END_TAG)
 		return AE_OK;
 
-	if (!acpi_dev_resource_interrupt(ares, 0, &r)) {
+	if (!acpi_dev_resource_interrupt(ares, index, &r)) {
 		dev_err(dev, "unable to parse IRQ resource\n");
 		return AE_ERROR;
 	}
-	if (ares->type == ACPI_RESOURCE_TYPE_IRQ)
-		gsi = p->interrupts[0];
-	else
-		gsi = pext->interrupts[0];
+
+	switch (ares->type) {
+	case ACPI_RESOURCE_TYPE_IRQ:
+		gsi = ares->data.irq.interrupts[index];
+		break;
+	case ACPI_RESOURCE_TYPE_EXTENDED_IRQ:
+		gsi = ares->data.extended_irq.interrupts[index];
+		break;
+	case ACPI_RESOURCE_TYPE_MSI_IRQ:
+		gsi = ares->data.msi_irq.msi_id;
+		vect_count = ares->data.msi_irq.vect_count;
+
+		if (dev->msi_domain)
+			break;
+
+		/* Check if ACPI provides MSI support */
+		if (acpi_has_method(ACPI_HANDLE(dev), METHOD_NAME__MSI)) {
+			/* Create MSI domain */
+			dev->msi_domain = ged_create_msi_domain(gsi);
+			if (!dev->msi_domain)
+				return AE_ERROR;
+		}
+
+		break;
+	}
 
 	irq = r.start;
 
@@ -114,8 +294,25 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 
 	event->gsi = gsi;
 	event->dev = dev;
-	event->irq = irq;
 	event->handle = evt_handle;
+
+	/* Use MSI if the MSI domain does exist */
+	if (dev->msi_domain) {
+		
+		init_irq_alloc_info(&info, NULL);
+		info.data = event;
+		virq = irq_domain_alloc_irqs(dev->msi_domain,
+					    vect_count,
+					    NUMA_NO_NODE,
+					    &info);
+		if (virq < 0)
+			return AE_ERROR;
+
+		irq = (unsigned int) virq;
+	}
+
+	/* Update IRQ number */
+	event->irq = irq;
 
 	if (r.flags & IORESOURCE_IRQ_SHAREABLE)
 		irqflags |= IRQF_SHARED;
@@ -126,7 +323,7 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 		return AE_ERROR;
 	}
 
-	dev_dbg(dev, "GED listening GSI %u @ IRQ %u\n", gsi, irq);
+	dev_warn(dev, "GED listening GSI %u @ IRQ %u\n", gsi, irq);
 	list_add_tail(&event->node, &geddev->event_list);
 	return AE_OK;
 }
@@ -135,19 +332,28 @@ static int ged_probe(struct platform_device *pdev)
 {
 	struct acpi_ged_device *geddev;
 	acpi_status acpi_ret;
+	struct device *dev = &pdev->dev;
 
-	geddev = devm_kzalloc(&pdev->dev, sizeof(*geddev), GFP_KERNEL);
+	pr_err("###SEB 1 ged_probe()\n");
+
+	geddev = devm_kzalloc(dev, sizeof(*geddev), GFP_KERNEL);
 	if (!geddev)
 		return -ENOMEM;
 
-	geddev->dev = &pdev->dev;
+	geddev->dev = dev;
 	INIT_LIST_HEAD(&geddev->event_list);
-	acpi_ret = acpi_walk_resources(ACPI_HANDLE(&pdev->dev), "_CRS",
+
+	pr_err("###SEB 2 ged_probe()\n");
+
+	/* Initialise IRQ for each Interrupt() resource listed from DSDT */
+	acpi_ret = acpi_walk_resources(ACPI_HANDLE(dev), METHOD_NAME__CRS,
 				       acpi_ged_request_interrupt, geddev);
 	if (ACPI_FAILURE(acpi_ret)) {
-		dev_err(&pdev->dev, "unable to parse the _CRS record\n");
+		dev_err(dev, "unable to parse the %s record\n",
+			METHOD_NAME__CRS);
 		return -EINVAL;
 	}
+	pr_err("###SEB 3 ged_probe()\n");
 	platform_set_drvdata(pdev, geddev);
 
 	return 0;
@@ -156,12 +362,18 @@ static int ged_probe(struct platform_device *pdev)
 static void ged_shutdown(struct platform_device *pdev)
 {
 	struct acpi_ged_device *geddev = platform_get_drvdata(pdev);
+	struct device *dev = &pdev->dev;
 	struct acpi_ged_event *event, *next;
 
+	if (dev->msi_domain)
+		msi_domain_free_irqs(dev->msi_domain, dev);
+
 	list_for_each_entry_safe(event, next, &geddev->event_list, node) {
-		free_irq(event->irq, event);
+		if (!dev->msi_domain)
+			free_irq(event->irq, event);
+
 		list_del(&event->node);
-		dev_dbg(geddev->dev, "GED releasing GSI %u @ IRQ %u\n",
+		dev_warn(dev, "GED releasing GSI %u @ IRQ %u\n",
 			 event->gsi, event->irq);
 	}
 }

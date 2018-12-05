@@ -67,6 +67,7 @@ enum irq_alloc_type {
 struct irq_alloc_info {
 	enum irq_alloc_type	type;
 	u32			flags;
+	void                    *data;
 	const struct cpumask	*mask;	/* CPU mask for vector allocation */
 	union {
 		int		unused;

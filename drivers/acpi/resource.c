@@ -395,6 +395,11 @@ static void acpi_dev_irqresource_disabled(struct resource *res, u32 gsi)
 	res->flags = IORESOURCE_IRQ | IORESOURCE_DISABLED | IORESOURCE_UNSET;
 }
 
+static void acpi_dev_msi_irqresource_disabled(struct resource *res)
+{
+	res->flags = IORESOURCE_IRQ | IORESOURCE_DISABLED | IORESOURCE_UNSET;
+}
+
 static void acpi_dev_get_irqresource(struct resource *res, u32 gsi,
 				     u8 triggering, u8 polarity, u8 shareable,
 				     bool legacy)
@@ -438,6 +443,12 @@ static void acpi_dev_get_irqresource(struct resource *res, u32 gsi,
 	}
 }
 
+static void acpi_dev_get_msi_irqresource(struct resource *res, u8 triggering,
+					 u8 polarity, u8 shareable)
+{
+	res->flags = acpi_dev_irq_flags(triggering, polarity, shareable);
+}
+
 /**
  * acpi_dev_resource_interrupt - Extract ACPI interrupt resource information.
  * @ares: Input ACPI resource object.
@@ -462,6 +473,7 @@ bool acpi_dev_resource_interrupt(struct acpi_resource *ares, int index,
 {
 	struct acpi_resource_irq *irq;
 	struct acpi_resource_extended_irq *ext_irq;
+	struct acpi_resource_msi_irq *msi_irq;
 
 	switch (ares->type) {
 	case ACPI_RESOURCE_TYPE_IRQ:
@@ -490,6 +502,17 @@ bool acpi_dev_resource_interrupt(struct acpi_resource *ares, int index,
 					 ext_irq->sharable, false);
 		else
 			acpi_dev_irqresource_disabled(res, 0);
+		break;
+	case ACPI_RESOURCE_TYPE_MSI_IRQ:
+		msi_irq = &ares->data.msi_irq;
+		if (index > 1 || msi_irq->vect_count <= 0) {
+			pr_err("acpi_dev_resource_interrupt(): flags %x%x%x%x%x msi_id %x vect_cnt %x", msi_irq->producer_consumer, msi_irq->triggering, msi_irq->polarity, msi_irq->sharable, msi_irq->wake_capable, msi_irq->msi_id, msi_irq->vect_count);
+			acpi_dev_msi_irqresource_disabled(res);
+			return false;
+		}
+		acpi_dev_get_msi_irqresource(res, msi_irq->triggering,
+					     msi_irq->polarity,
+					     msi_irq->sharable);
 		break;
 	default:
 		res->flags = 0;
@@ -543,6 +566,8 @@ static acpi_status acpi_dev_process_resource(struct acpi_resource *ares,
 	struct resource *res = &win.res;
 	int i;
 
+	pr_err("###SEB acpi_dev_process_resource() 1\n");
+
 	if (c->preproc) {
 		int ret;
 
@@ -555,21 +580,28 @@ static acpi_status acpi_dev_process_resource(struct acpi_resource *ares,
 		}
 	}
 
+	pr_err("###SEB acpi_dev_process_resource() 2\n");
+
 	memset(&win, 0, sizeof(win));
 
 	if (acpi_dev_resource_memory(ares, res)
 	    || acpi_dev_resource_io(ares, res)
 	    || acpi_dev_resource_address_space(ares, &win)
-	    || acpi_dev_resource_ext_address_space(ares, &win))
+	    || acpi_dev_resource_ext_address_space(ares, &win)) {
+		pr_err("###SEB acpi_dev_process_resource() 3\n");
 		return acpi_dev_new_resource_entry(&win, c);
+	}
 
+	pr_err("###SEB acpi_dev_process_resource() 4\n");
 	for (i = 0; acpi_dev_resource_interrupt(ares, i, res); i++) {
 		acpi_status status;
 
+		pr_err("###SEB acpi_dev_process_resource() 5\n");
 		status = acpi_dev_new_resource_entry(&win, c);
 		if (ACPI_FAILURE(status))
 			return status;
 	}
+	pr_err("###SEB acpi_dev_process_resource() 6\n");
 
 	return AE_OK;
 }

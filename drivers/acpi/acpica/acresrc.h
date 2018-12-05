@@ -303,6 +303,7 @@ extern struct acpi_rsconvert_info acpi_rs_convert_pin_config[];
 extern struct acpi_rsconvert_info acpi_rs_convert_pin_group[];
 extern struct acpi_rsconvert_info acpi_rs_convert_pin_group_function[];
 extern struct acpi_rsconvert_info acpi_rs_convert_pin_group_config[];
+extern struct acpi_rsconvert_info acpi_rs_convert_msi_irq[];
 
 /* These resources require separate get/set tables */
 
@@ -357,6 +358,8 @@ extern struct acpi_rsdump_info acpi_rs_dump_pin_config[];
 extern struct acpi_rsdump_info acpi_rs_dump_pin_group[];
 extern struct acpi_rsdump_info acpi_rs_dump_pin_group_function[];
 extern struct acpi_rsdump_info acpi_rs_dump_pin_group_config[];
+extern struct acpi_rsdump_info acpi_rs_dump_msi_irq[];
+
 #endif
 
 #endif				/* __ACRESRC_H__ */

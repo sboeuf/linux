@@ -392,6 +392,23 @@ struct acpi_rsdump_info acpi_rs_dump_pin_group_config[10] = {
 	 "VendorData", NULL},
 };
 
+struct acpi_rsdump_info acpi_rs_dump_msi_irq[8] = {
+	{ACPI_RSD_TITLE, ACPI_RSD_TABLE_SIZE(acpi_rs_dump_msi_irq),
+	 "MSI IRQ", NULL},
+	{ACPI_RSD_1BITFLAG, ACPI_RSD_OFFSET(msi_irq.producer_consumer),
+	 "Type", acpi_gbl_consume_decode},
+	{ACPI_RSD_1BITFLAG, ACPI_RSD_OFFSET(msi_irq.triggering),
+	 "Triggering", acpi_gbl_he_decode},
+	{ACPI_RSD_1BITFLAG, ACPI_RSD_OFFSET(msi_irq.polarity), "Polarity",
+	 acpi_gbl_ll_decode},
+	{ACPI_RSD_2BITFLAG, ACPI_RSD_OFFSET(msi_irq.sharable), "Sharing",
+	 acpi_gbl_shr_decode},
+	{ACPI_RSD_UINT64, ACPI_RSD_OFFSET(msi_irq.msi_id),
+	 "MSI unique identifier", NULL},
+	{ACPI_RSD_UINT8, ACPI_RSD_OFFSET(msi_irq.vect_count),
+	 "Number of interrupts per vector", NULL},
+};
+
 struct acpi_rsdump_info acpi_rs_dump_fixed_dma[4] = {
 	{ACPI_RSD_TITLE, ACPI_RSD_TABLE_SIZE(acpi_rs_dump_fixed_dma),
 	 "FixedDma", NULL},

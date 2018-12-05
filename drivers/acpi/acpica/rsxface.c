@@ -512,12 +512,14 @@ acpi_walk_resource_buffer(struct acpi_buffer *buffer,
 	struct acpi_resource *resource_end;
 
 	ACPI_FUNCTION_TRACE(acpi_walk_resource_buffer);
+	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resource_buffer() 1\n"));
 
 	/* Parameter validation */
 
 	if (!buffer || !buffer->pointer || !user_function) {
 		return_ACPI_STATUS(AE_BAD_PARAMETER);
 	}
+	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resource_buffer() 2\n"));
 
 	/* Buffer contains the resource list and length */
 
@@ -525,9 +527,12 @@ acpi_walk_resource_buffer(struct acpi_buffer *buffer,
 	resource_end =
 	    ACPI_ADD_PTR(struct acpi_resource, buffer->pointer, buffer->length);
 
+	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resource_buffer() 3\n"));
+
 	/* Walk the resource list until the end_tag is found (or buffer end) */
 
 	while (resource < resource_end) {
+		ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resource_buffer() 4\n"));
 
 		/* Sanity check the resource type */
 
@@ -535,19 +540,23 @@ acpi_walk_resource_buffer(struct acpi_buffer *buffer,
 			status = AE_AML_INVALID_RESOURCE_TYPE;
 			break;
 		}
+		ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resource_buffer() 5\n"));
 
 		/* Sanity check the length. It must not be zero, or we loop forever */
 
 		if (!resource->length) {
 			return_ACPI_STATUS(AE_AML_BAD_RESOURCE_LENGTH);
 		}
+		ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resource_buffer() 6\n"));
 
 		/* Invoke the user function, abort on any error returned */
 
+		dump_stack();
 		status = user_function(resource, context);
 		if (ACPI_FAILURE(status)) {
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resource_buffer() 7\n"));
 			if (status == AE_CTRL_TERMINATE) {
-
+				ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resource_buffer() 8\n"));
 				/* This is an OK termination by the user function */
 
 				status = AE_OK;
@@ -555,17 +564,21 @@ acpi_walk_resource_buffer(struct acpi_buffer *buffer,
 			break;
 		}
 
+		ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resource_buffer() 9\n"));
 		/* end_tag indicates end-of-list */
 
 		if (resource->type == ACPI_RESOURCE_TYPE_END_TAG) {
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resource_buffer() 10\n"));
 			break;
 		}
 
+		ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resource_buffer() 11\n"));
 		/* Get the next resource descriptor */
 
 		resource = ACPI_NEXT_RESOURCE(resource);
 	}
 
+	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resource_buffer() 12\n"));
 	return_ACPI_STATUS(status);
 }
 
@@ -611,17 +624,21 @@ acpi_walk_resources(acpi_handle device_handle,
 	}
 
 	/* Get the _CRS/_PRS/_AEI/_DMA resource list */
-
+	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resources() 1\n"));
 	buffer.length = ACPI_ALLOCATE_LOCAL_BUFFER;
 	status = acpi_rs_get_method_data(device_handle, name, &buffer);
 	if (ACPI_FAILURE(status)) {
+		ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resources() 1.5\n"));
 		return_ACPI_STATUS(status);
 	}
+	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resources() 2\n"));
 
 	/* Walk the resource list and cleanup */
 
 	status = acpi_walk_resource_buffer(&buffer, user_function, context);
+	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resources() 3\n"));
 	ACPI_FREE(buffer.pointer);
+	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB acpi_walk_resources() 4\n"));
 	return_ACPI_STATUS(status);
 }
 

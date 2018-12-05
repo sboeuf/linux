@@ -86,6 +86,7 @@ acpi_rs_convert_aml_to_resource(struct acpi_resource *resource,
 			memset(resource, 0, INIT_RESOURCE_LENGTH(info));
 			resource->type = INIT_RESOURCE_TYPE(info);
 			resource->length = INIT_RESOURCE_LENGTH(info);
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB ACPI_RSC_INITGET: resource->type %d, resource->length %d\n", resource->type, resource->length));
 			break;
 
 		case ACPI_RSC_INITSET:
@@ -102,6 +103,7 @@ acpi_rs_convert_aml_to_resource(struct acpi_resource *resource,
 			 */
 			ACPI_SET8(destination,
 				  ((ACPI_GET8(source) >> info->value) & 0x01));
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB ACPI_RSC_1BITFLAG: info->value %d, source %x, destination %x\n", info->value, ACPI_GET8(source), ACPI_GET8(destination)));
 			break;
 
 		case ACPI_RSC_2BITFLAG:
@@ -209,6 +211,7 @@ acpi_rs_convert_aml_to_resource(struct acpi_resource *resource,
 		case ACPI_RSC_MOVE16:
 		case ACPI_RSC_MOVE32:
 		case ACPI_RSC_MOVE64:
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB ACPI_RSC_MOVE: info->value %d\n", info->value));
 			/*
 			 * Raw data move. Use the Info value field unless item_count has
 			 * been previously initialized via a COUNT opcode
@@ -292,9 +295,11 @@ acpi_rs_convert_aml_to_resource(struct acpi_resource *resource,
 			break;
 
 		case ACPI_RSC_DATA8:
-
-			target = ACPI_ADD_PTR(char, resource, info->value);
-			memcpy(destination, source, ACPI_GET16(target));
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB 1 ACPI_RSC_DATA8: source %x, dest %x\n", ACPI_GET8(source), ACPI_GET8(destination)));
+//			target = ACPI_ADD_PTR(char, resource, info->value);
+//			memcpy(destination, source, ACPI_GET16(target));
+			ACPI_SET8(destination, (ACPI_GET8(source) & 0xff));
+			ACPI_DEBUG_PRINT((ACPI_DB_INFO, "###SEB 2 ACPI_RSC_DATA8: source %x, dest %x\n", ACPI_GET8(source), ACPI_GET8(destination)));
 			break;
 
 		case ACPI_RSC_ADDRESS:

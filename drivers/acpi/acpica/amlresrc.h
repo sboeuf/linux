@@ -469,6 +469,12 @@ struct aml_resource_pin_group_config {
 
 #define AML_RESOURCE_PIN_GROUP_CONFIG_REVISION    1	/* ACPI 6.2 */
 
+struct aml_resource_msi_irq {
+	AML_RESOURCE_LARGE_HEADER_COMMON u8 flags;
+	u64 msi_id;
+	u8 vect_count;
+};
+
 /* restore default alignment */
 
 #pragma pack()
@@ -516,6 +522,7 @@ union aml_resource {
 	struct aml_resource_pin_group pin_group;
 	struct aml_resource_pin_group_function pin_group_function;
 	struct aml_resource_pin_group_config pin_group_config;
+	struct aml_resource_msi_irq msi_irq;	
 
 	/* Utility overlays */
 

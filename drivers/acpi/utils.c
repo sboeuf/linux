@@ -569,6 +569,38 @@ acpi_status acpi_execute_simple_method(acpi_handle handle, char *method,
 EXPORT_SYMBOL(acpi_execute_simple_method);
 
 /**
+ * acpi_evaluate_msi - evaluate device's _MSI method
+ * @handle: ACPI device handle
+ * @idx: MSI index helps to associate with a GSI
+ * @addr_hi: First 32 bits of MSI address
+ * @addr_lo: Last 32 bits of MSI address
+ * @data: MSI data containing info about virq
+ *
+ * Evaluate device's _MSI method.
+ */
+acpi_status acpi_evaluate_msi(acpi_handle handle, u64 gsi_id, u64 addr_hi,
+			      u64 addr_lo, u64 data)
+{
+	union acpi_object params[4];
+	struct acpi_object_list input = {
+		.count = 4,
+		.pointer = params,
+	};
+
+	params[0].type = ACPI_TYPE_INTEGER;
+	params[0].integer.value = gsi_id;
+	params[1].type = ACPI_TYPE_INTEGER;
+	params[1].integer.value = addr_hi;
+	params[2].type = ACPI_TYPE_INTEGER;
+	params[2].integer.value = addr_lo;
+	params[3].type = ACPI_TYPE_INTEGER;
+	params[3].integer.value = data;
+
+	return acpi_evaluate_object(handle, METHOD_NAME__MSI, &input, NULL);
+}
+EXPORT_SYMBOL(acpi_evaluate_msi);
+
+/**
  * acpi_evaluate_ej0: Evaluate _EJ0 method for hotplug operations
  * @handle: ACPI device handle
  *
