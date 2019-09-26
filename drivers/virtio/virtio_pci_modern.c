@@ -319,8 +319,13 @@ static struct virtqueue *setup_vq(struct virtio_pci_device *vp_dev,
 	u16 num, off;
 	int err;
 
-	if (index >= vp_ioread16(&cfg->num_queues))
+	pr_err("### %s 1\n", __func__);
+	int num_queues = vp_ioread16(&cfg->num_queues);
+	pr_err("### %s 1.1 num_queues %d\n", __func__, num_queues);
+	if (index >= num_queues)
 		return ERR_PTR(-ENOENT);
+
+	pr_err("### %s 2\n", __func__);
 
 	/* Select the queue we're interested in */
 	vp_iowrite16(index, &cfg->queue_select);
@@ -330,11 +335,13 @@ static struct virtqueue *setup_vq(struct virtio_pci_device *vp_dev,
 	if (!num || vp_ioread16(&cfg->queue_enable))
 		return ERR_PTR(-ENOENT);
 
+	pr_err("### %s 3\n", __func__);
 	if (num & (num - 1)) {
 		dev_warn(&vp_dev->pci_dev->dev, "bad queue size %u", num);
 		return ERR_PTR(-EINVAL);
 	}
 
+	pr_err("### %s 4\n", __func__);
 	/* get offset of notification word for this vq */
 	off = vp_ioread16(&cfg->queue_notify_off);
 
@@ -348,6 +355,7 @@ static struct virtqueue *setup_vq(struct virtio_pci_device *vp_dev,
 	if (!vq)
 		return ERR_PTR(-ENOMEM);
 
+	pr_err("### %s 5\n", __func__);
 	/* activate the queue */
 	vp_iowrite16(virtqueue_get_vring_size(vq), &cfg->queue_size);
 	vp_iowrite64_twopart(virtqueue_get_desc_addr(vq),
@@ -377,11 +385,13 @@ static struct virtqueue *setup_vq(struct virtio_pci_device *vp_dev,
 					  off * vp_dev->notify_offset_multiplier, 2,
 					  NULL);
 	}
+	pr_err("### %s 6\n", __func__);
 
 	if (!vq->priv) {
 		err = -ENOMEM;
 		goto err_map_notify;
 	}
+	pr_err("### %s 7\n", __func__);
 
 	if (msix_vec != VIRTIO_MSI_NO_VECTOR) {
 		vp_iowrite16(msix_vec, &cfg->queue_msix_vector);
@@ -391,6 +401,7 @@ static struct virtqueue *setup_vq(struct virtio_pci_device *vp_dev,
 			goto err_assign_vector;
 		}
 	}
+	pr_err("### %s 8\n", __func__);
 
 	return vq;
 
@@ -410,11 +421,13 @@ static int vp_modern_find_vqs(struct virtio_device *vdev, unsigned nvqs,
 {
 	struct virtio_pci_device *vp_dev = to_vp_device(vdev);
 	struct virtqueue *vq;
+	pr_err("### %s 1\n", __func__);
 	int rc = vp_find_vqs(vdev, nvqs, vqs, callbacks, names, ctx, desc);
 
 	if (rc)
 		return rc;
 
+	pr_err("### %s 2\n", __func__);
 	/* Select and activate all queues. Has to be done last: once we do
 	 * this, there's no way to go back except reset.
 	 */
@@ -423,6 +436,7 @@ static int vp_modern_find_vqs(struct virtio_device *vdev, unsigned nvqs,
 		vp_iowrite16(1, &vp_dev->common->queue_enable);
 	}
 
+	pr_err("### %s 3\n", __func__);
 	return 0;
 }
 

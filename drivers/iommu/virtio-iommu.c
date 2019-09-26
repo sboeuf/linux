@@ -1129,13 +1129,19 @@ static int viommu_probe(struct virtio_device *vdev)
 	u64 input_end = -1UL;
 	int ret;
 
+	pr_err("### %s 1\n", __func__);
+
 	if (!virtio_has_feature(vdev, VIRTIO_F_VERSION_1) ||
 	    !virtio_has_feature(vdev, VIRTIO_IOMMU_F_MAP_UNMAP))
 		return -ENODEV;
 
+	pr_err("### %s 2\n", __func__);
+
 	viommu = devm_kzalloc(dev, sizeof(*viommu), GFP_KERNEL);
 	if (!viommu)
 		return -ENOMEM;
+
+	pr_err("### %s 3\n", __func__);
 
 	spin_lock_init(&viommu->request_lock);
 	ida_init(&viommu->domain_ids);
@@ -1147,6 +1153,8 @@ static int viommu_probe(struct virtio_device *vdev)
 	if (ret)
 		return ret;
 
+	pr_err("### %s 4\n", __func__);
+
 	virtio_cread(vdev, struct virtio_iommu_config, page_size_mask,
 		     &viommu->pgsize_bitmap);
 
@@ -1155,6 +1163,7 @@ static int viommu_probe(struct virtio_device *vdev)
 		goto err_free_vqs;
 	}
 
+	pr_err("### %s 5\n", __func__);
 	viommu->domain_bits = 32;
 
 	/* Optional features */
@@ -1189,10 +1198,14 @@ static int viommu_probe(struct virtio_device *vdev)
 	if (ret)
 		goto err_free_vqs;
 
+	pr_err("### %s 6\n", __func__);
+
 	ret = iommu_device_sysfs_add(&viommu->iommu, dev, NULL, "%s",
 				     virtio_bus_name(vdev));
 	if (ret)
 		goto err_free_vqs;
+
+	pr_err("### %s 7\n", __func__);
 
 	fwnode = viommu_get_fwnode(parent_dev);
 	if (!fwnode) {
@@ -1219,12 +1232,15 @@ static int viommu_probe(struct virtio_device *vdev)
 #endif
 
 #ifdef CONFIG_PCI
+	pr_err("### %s 8\n", __func__);
 	if (pci_bus_type.iommu_ops != &viommu_ops) {
 		pci_request_acs();
 		ret = bus_set_iommu(&pci_bus_type, &viommu_ops);
 		if (ret)
 			goto err_unregister;
 	}
+
+	pr_err("### %s 9\n", __func__);
 #endif
 #ifdef CONFIG_ARM_AMBA
 	if (amba_bustype.iommu_ops != &viommu_ops) {
@@ -1233,11 +1249,13 @@ static int viommu_probe(struct virtio_device *vdev)
 			goto err_unregister;
 	}
 #endif
+	pr_err("### %s 10\n", __func__);
 	if (platform_bus_type.iommu_ops != &viommu_ops) {
 		ret = bus_set_iommu(&platform_bus_type, &viommu_ops);
 		if (ret)
 			goto err_unregister;
 	}
+	pr_err("### %s 11\n", __func__);
 
 	vdev->priv = viommu;
 

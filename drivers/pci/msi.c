@@ -938,15 +938,19 @@ static int __pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries,
 	int nr_entries;
 	int i, j;
 
+	pr_err("### %s 1\n", __func__);
 	if (!pci_msi_supported(dev, nvec))
 		return -EINVAL;
 
+	pr_err("### %s 2\n", __func__);
 	nr_entries = pci_msix_vec_count(dev);
 	if (nr_entries < 0)
 		return nr_entries;
+	pr_err("### %s 3\n", __func__);
 	if (nvec > nr_entries)
 		return nr_entries;
 
+	pr_err("### %s 4\n", __func__);
 	if (entries) {
 		/* Check for any invalid entries */
 		for (i = 0; i < nvec; i++) {
@@ -958,12 +962,14 @@ static int __pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries,
 			}
 		}
 	}
+	pr_err("### %s 5\n", __func__);
 
 	/* Check whether driver already requested for MSI irq */
 	if (dev->msi_enabled) {
 		pci_info(dev, "can't enable MSI-X (MSI IRQ already assigned)\n");
 		return -EINVAL;
 	}
+	pr_err("### %s 6\n", __func__);
 	return msix_capability_init(dev, entries, nvec, affd);
 }
 
@@ -1084,27 +1090,34 @@ static int __pci_enable_msix_range(struct pci_dev *dev,
 {
 	int rc, nvec = maxvec;
 
+	pr_err("### %s 1\n", __func__);
 	if (maxvec < minvec)
 		return -ERANGE;
 
+	pr_err("### %s 2\n", __func__);
 	if (WARN_ON_ONCE(dev->msix_enabled))
 		return -EINVAL;
 
+	pr_err("### %s 3\n", __func__);
 	for (;;) {
 		if (affd) {
 			nvec = irq_calc_affinity_vectors(minvec, nvec, affd);
 			if (nvec < minvec)
 				return -ENOSPC;
 		}
+		pr_err("### %s 4\n", __func__);
 
 		rc = __pci_enable_msix(dev, entries, nvec, affd);
 		if (rc == 0)
 			return nvec;
+		pr_err("### %s 5\n", __func__);
 
 		if (rc < 0)
 			return rc;
+		pr_err("### %s 6\n", __func__);
 		if (rc < minvec)
 			return -ENOSPC;
+		pr_err("### %s 7\n", __func__);
 
 		nvec = rc;
 	}
@@ -1157,6 +1170,7 @@ int pci_alloc_irq_vectors_affinity(struct pci_dev *dev, unsigned int min_vecs,
 	static const struct irq_affinity msi_default_affd;
 	int vecs = -ENOSPC;
 
+	pr_err("### %s 1\n", __func__);
 	if (flags & PCI_IRQ_AFFINITY) {
 		if (!affd)
 			affd = &msi_default_affd;
@@ -1166,17 +1180,21 @@ int pci_alloc_irq_vectors_affinity(struct pci_dev *dev, unsigned int min_vecs,
 	}
 
 	if (flags & PCI_IRQ_MSIX) {
+		pr_err("### %s 1.1\n", __func__);
 		vecs = __pci_enable_msix_range(dev, NULL, min_vecs, max_vecs,
 				affd);
 		if (vecs > 0)
 			return vecs;
+		pr_err("### %s 1.2\n", __func__);
 	}
+	pr_err("### %s 2\n", __func__);
 
 	if (flags & PCI_IRQ_MSI) {
 		vecs = __pci_enable_msi_range(dev, min_vecs, max_vecs, affd);
 		if (vecs > 0)
 			return vecs;
 	}
+	pr_err("### %s 3\n", __func__);
 
 	/* use legacy irq if allowed */
 	if (flags & PCI_IRQ_LEGACY) {
@@ -1185,6 +1203,7 @@ int pci_alloc_irq_vectors_affinity(struct pci_dev *dev, unsigned int min_vecs,
 			return 1;
 		}
 	}
+	pr_err("### %s 4\n", __func__);
 
 	return vecs;
 }

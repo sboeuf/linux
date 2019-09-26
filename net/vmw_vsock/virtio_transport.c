@@ -558,16 +558,19 @@ static int virtio_vsock_probe(struct virtio_device *vdev)
 	struct virtio_vsock *vsock = NULL;
 	int ret;
 
+	pr_err("### %s 1\n", __func__);
 	ret = mutex_lock_interruptible(&the_virtio_vsock_mutex);
 	if (ret)
 		return ret;
 
+	pr_err("### %s 2\n", __func__);
 	/* Only one virtio-vsock device per guest is supported */
 	if (the_virtio_vsock) {
 		ret = -EBUSY;
 		goto out;
 	}
 
+	pr_err("### %s 3\n", __func__);
 	vsock = kzalloc(sizeof(*vsock), GFP_KERNEL);
 	if (!vsock) {
 		ret = -ENOMEM;
@@ -576,12 +579,14 @@ static int virtio_vsock_probe(struct virtio_device *vdev)
 
 	vsock->vdev = vdev;
 
+	pr_err("### %s 4\n", __func__);
 	ret = virtio_find_vqs(vsock->vdev, VSOCK_VQ_MAX,
 			      vsock->vqs, callbacks, names,
 			      NULL);
 	if (ret < 0)
 		goto out;
 
+	pr_err("### %s 5\n", __func__);
 	virtio_vsock_update_guest_cid(vsock);
 
 	ret = vsock_core_init(&virtio_transport.transport);
@@ -616,6 +621,7 @@ static int virtio_vsock_probe(struct virtio_device *vdev)
 	mutex_unlock(&vsock->event_lock);
 
 	mutex_unlock(&the_virtio_vsock_mutex);
+	pr_err("### %s 6\n", __func__);
 	return 0;
 
 out_vqs:

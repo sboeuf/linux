@@ -111,6 +111,7 @@ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
 	unsigned i, v;
 	int err = -ENOMEM;
 
+	pr_err("### %s 1\n", __func__);
 	vp_dev->msix_vectors = nvectors;
 
 	vp_dev->msix_names = kmalloc_array(nvectors,
@@ -118,16 +119,21 @@ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
 					   GFP_KERNEL);
 	if (!vp_dev->msix_names)
 		goto error;
+
+	pr_err("### %s 2\n", __func__);
 	vp_dev->msix_affinity_masks
 		= kcalloc(nvectors, sizeof(*vp_dev->msix_affinity_masks),
 			  GFP_KERNEL);
 	if (!vp_dev->msix_affinity_masks)
 		goto error;
+
+	pr_err("### %s 3\n", __func__);
 	for (i = 0; i < nvectors; ++i)
 		if (!alloc_cpumask_var(&vp_dev->msix_affinity_masks[i],
 					GFP_KERNEL))
 			goto error;
 
+	pr_err("### %s 4\n", __func__);
 	if (desc) {
 		flags |= PCI_IRQ_AFFINITY;
 		desc->pre_vectors++; /* virtio config vector */
@@ -139,6 +145,7 @@ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
 		goto error;
 	vp_dev->msix_enabled = 1;
 
+	pr_err("### %s 5\n", __func__);
 	/* Set the vector used for configuration */
 	v = vp_dev->msix_used_vectors;
 	snprintf(vp_dev->msix_names[v], sizeof *vp_dev->msix_names,
@@ -150,6 +157,7 @@ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
 		goto error;
 	++vp_dev->msix_used_vectors;
 
+	pr_err("### %s 6\n", __func__);
 	v = vp_dev->config_vector(vp_dev, v);
 	/* Verify we had enough resources to assign the vector */
 	if (v == VIRTIO_MSI_NO_VECTOR) {
@@ -157,6 +165,7 @@ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
 		goto error;
 	}
 
+	pr_err("### %s 7\n", __func__);
 	if (!per_vq_vectors) {
 		/* Shared vector for all VQs */
 		v = vp_dev->msix_used_vectors;
@@ -169,6 +178,7 @@ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
 			goto error;
 		++vp_dev->msix_used_vectors;
 	}
+	pr_err("### %s 8\n", __func__);
 	return 0;
 error:
 	return err;
@@ -189,10 +199,13 @@ static struct virtqueue *vp_setup_vq(struct virtio_device *vdev, unsigned index,
 	if (!info)
 		return ERR_PTR(-ENOMEM);
 
+	pr_err("### %s 1\n", __func__);
 	vq = vp_dev->setup_vq(vp_dev, info, index, callback, name, ctx,
 			      msix_vec);
 	if (IS_ERR(vq))
 		goto out_info;
+
+	pr_err("### %s 2\n", __func__);
 
 	info->vq = vq;
 	if (callback) {
@@ -202,6 +215,7 @@ static struct virtqueue *vp_setup_vq(struct virtio_device *vdev, unsigned index,
 	} else {
 		INIT_LIST_HEAD(&info->node);
 	}
+	pr_err("### %s 3\n", __func__);
 
 	vp_dev->vqs[index] = info;
 	return vq;
@@ -287,10 +301,12 @@ static int vp_find_vqs_msix(struct virtio_device *vdev, unsigned nvqs,
 	u16 msix_vec;
 	int i, err, nvectors, allocated_vectors;
 
+	pr_err("### %s 1\n", __func__);
 	vp_dev->vqs = kcalloc(nvqs, sizeof(*vp_dev->vqs), GFP_KERNEL);
 	if (!vp_dev->vqs)
 		return -ENOMEM;
 
+	pr_err("### %s 2\n", __func__);
 	if (per_vq_vectors) {
 		/* Best option: one for change interrupt, one per vq. */
 		nvectors = 1;
@@ -307,6 +323,7 @@ static int vp_find_vqs_msix(struct virtio_device *vdev, unsigned nvqs,
 	if (err)
 		goto error_find;
 
+	pr_err("### %s 3\n", __func__);
 	vp_dev->per_vq_vectors = per_vq_vectors;
 	allocated_vectors = vp_dev->msix_used_vectors;
 	for (i = 0; i < nvqs; ++i) {
@@ -315,6 +332,7 @@ static int vp_find_vqs_msix(struct virtio_device *vdev, unsigned nvqs,
 			continue;
 		}
 
+		pr_err("### %s 4\n", __func__);
 		if (!callbacks[i])
 			msix_vec = VIRTIO_MSI_NO_VECTOR;
 		else if (vp_dev->per_vq_vectors)
@@ -328,10 +346,12 @@ static int vp_find_vqs_msix(struct virtio_device *vdev, unsigned nvqs,
 			err = PTR_ERR(vqs[i]);
 			goto error_find;
 		}
+		pr_err("### %s 5\n", __func__);
 
 		if (!vp_dev->per_vq_vectors || msix_vec == VIRTIO_MSI_NO_VECTOR)
 			continue;
 
+		pr_err("### %s 6\n", __func__);
 		/* allocate per-vq irq if available and necessary */
 		snprintf(vp_dev->msix_names[msix_vec],
 			 sizeof *vp_dev->msix_names,
@@ -343,7 +363,10 @@ static int vp_find_vqs_msix(struct virtio_device *vdev, unsigned nvqs,
 				  vqs[i]);
 		if (err)
 			goto error_find;
+
+		pr_err("### %s 7\n", __func__);
 	}
+	pr_err("### %s 8\n", __func__);
 	return 0;
 
 error_find:
@@ -397,14 +420,19 @@ int vp_find_vqs(struct virtio_device *vdev, unsigned nvqs,
 {
 	int err;
 
+	pr_err("### %s 1\n", __func__);
 	/* Try MSI-X with one vector per queue. */
 	err = vp_find_vqs_msix(vdev, nvqs, vqs, callbacks, names, true, ctx, desc);
 	if (!err)
 		return 0;
+
+	pr_err("### %s 2\n", __func__);
 	/* Fallback: MSI-X with one vector for config, one shared for queues. */
 	err = vp_find_vqs_msix(vdev, nvqs, vqs, callbacks, names, false, ctx, desc);
 	if (!err)
 		return 0;
+
+	pr_err("### %s 3\n", __func__);
 	/* Finally fall back to regular interrupts. */
 	return vp_find_vqs_intx(vdev, nvqs, vqs, callbacks, names, ctx);
 }
