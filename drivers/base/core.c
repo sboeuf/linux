@@ -273,7 +273,7 @@ void device_pm_move_to_tail(struct device *dev)
  * Also, if DL_FLAG_STATELESS, DL_FLAG_AUTOREMOVE_CONSUMER and
  * DL_FLAG_AUTOREMOVE_SUPPLIER are not set in @flags (that is, a persistent
  * managed device link is being added), the DL_FLAG_AUTOPROBE_CONSUMER flag can
- * be used to request the driver core to automaticall probe for a consmer
+ * be used to request the driver core to automatically probe for a consumer
  * driver after successfully binding a driver to the supplier device.
  *
  * The combination of DL_FLAG_STATELESS and one of DL_FLAG_AUTOREMOVE_CONSUMER,
