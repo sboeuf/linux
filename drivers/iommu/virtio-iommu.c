@@ -889,7 +889,7 @@ static int viommu_add_device(struct device *dev)
 	INIT_LIST_HEAD(&vdev->resv_regions);
 	fwspec->iommu_priv = vdev;
 
-	vdev->link = device_link_add(dev, viommu->dev, 0);
+	vdev->link = device_link_add(dev, viommu->dev, DL_FLAG_AUTOPROBE_CONSUMER);
 	if (!vdev->link) {
 		ret = -ENODEV;
 		goto err_free_dev;
