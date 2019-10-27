@@ -580,6 +580,10 @@ config TPS68470_PMIC_OPREGION
 config ACPI_IORT
 	bool
 
+config ACPI_VIOT
+	bool
+	select ACPI_IORT
+
 endif	# ACPI
 
 config X86_PM_TIMER
