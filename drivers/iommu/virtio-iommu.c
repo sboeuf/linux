@@ -936,6 +936,7 @@ static void viommu_remove_device(struct device *dev)
 	iommu_device_unlink(&vdev->viommu->iommu, dev);
 	viommu_put_resv_regions(dev, &vdev->resv_regions);
 	kfree(vdev);
+	iommu_fwspec_free(dev);
 }
 
 static struct iommu_group *viommu_device_group(struct device *dev)
