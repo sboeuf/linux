@@ -22,6 +22,7 @@
 #include <linux/virtio.h>
 #include <linux/virtio_config.h>
 #include <linux/virtio_ids.h>
+#include <linux/virtio_iommu.h>
 #include <linux/wait.h>
 
 #include <uapi/linux/virtio_iommu.h>
@@ -1133,6 +1134,7 @@ static int viommu_probe(struct virtio_device *vdev)
 	if (ret)
 		goto err_sysfs_remove;
 
+	virt_set_iommu_ops(dev->parent, &viommu_ops);
 	iommu_device_set_ops(&viommu->iommu, &viommu_ops);
 	iommu_device_register(&viommu->iommu);
 
@@ -1181,6 +1183,7 @@ static void viommu_remove(struct virtio_device *vdev)
 	struct viommu_dev *viommu = vdev->priv;
 
 	iommu_device_unregister(&viommu->iommu);
+	virt_set_iommu_ops(vdev->dev.parent, NULL);
 	viommu_clear_fwnode(viommu);
 	iommu_device_sysfs_remove(&viommu->iommu);
 

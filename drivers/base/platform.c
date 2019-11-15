@@ -27,6 +27,7 @@
 #include <linux/limits.h>
 #include <linux/property.h>
 #include <linux/kmemleak.h>
+#include <linux/virtio_iommu.h>
 
 #include "base.h"
 #include "power/power.h"
@@ -1285,6 +1286,8 @@ int platform_dma_configure(struct device *dev)
 	} else if (has_acpi_companion(dev)) {
 		attr = acpi_get_dma_attr(to_acpi_device_node(dev->fwnode));
 		ret = acpi_dma_configure(dev, attr);
+	} else if (IS_ENABLED(CONFIG_VIRTIO_IOMMU_TOPOLOGY)) {
+		ret = virt_dma_configure(dev);
 	}
 
 	return ret;

@@ -17,6 +17,7 @@
 #include <linux/suspend.h>
 #include <linux/kexec.h>
 #include <linux/of_device.h>
+#include <linux/virtio_iommu.h>
 #include <linux/acpi.h>
 #include "pci.h"
 #include "pcie/portdrv.h"
@@ -1611,6 +1612,8 @@ static int pci_dma_configure(struct device *dev)
 		struct acpi_device *adev = to_acpi_device_node(bridge->fwnode);
 
 		ret = acpi_dma_configure(dev, acpi_get_dma_attr(adev));
+	} else if (IS_ENABLED(CONFIG_VIRTIO_IOMMU_TOPOLOGY)) {
+		ret = virt_dma_configure(dev);
 	}
 
 	pci_put_host_bridge_device(bridge);
