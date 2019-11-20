@@ -144,6 +144,7 @@ typedef acpi_status (*iort_find_node_callback)
 
 /* Root pointer to the mapped IORT table */
 static struct acpi_table_header *iort_table;
+static enum iort_table_source iort_table_source;
 
 static LIST_HEAD(iort_msi_chip_list);
 static DEFINE_SPINLOCK(iort_msi_chip_lock);
@@ -1611,11 +1612,28 @@ static void __init iort_init_platform_devices(void)
 	}
 }
 
+void __init acpi_iort_register_table(struct acpi_table_header *table,
+				     enum iort_table_source source)
+{
+	/*
+	 * Firmware or hypervisor should know better than give us two IORT
+	 * tables.
+	 */
+	if (WARN_ON(iort_table))
+		return;
+
+	iort_table = table;
+	iort_table_source = source;
+
+	iort_init_platform_devices();
+}
+
 void __init acpi_iort_init(void)
 {
 	acpi_status status;
+	static struct acpi_table_header *table;
 
-	status = acpi_get_table(ACPI_SIG_IORT, 0, &iort_table);
+	status = acpi_get_table(ACPI_SIG_IORT, 0, &table);
 	if (ACPI_FAILURE(status)) {
 		if (status != AE_NOT_FOUND) {
 			const char *msg = acpi_format_exception(status);
@@ -1626,5 +1644,5 @@ void __init acpi_iort_init(void)
 		return;
 	}
 
-	iort_init_platform_devices();
+	acpi_iort_register_table(table, IORT_SOURCE_IORT);
 }
