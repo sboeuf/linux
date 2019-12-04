@@ -7,6 +7,7 @@
 #include <linux/iommu.h>
 #include <linux/list.h>
 #include <linux/pci.h>
+#include <linux/platform_device.h>
 #include <linux/printk.h>
 #include <linux/virtio_config.h>
 #include <linux/virtio_iommu.h>
@@ -256,6 +257,23 @@ static bool viommu_parse_pci(struct pci_dev *pdev, union viommu_topo_cfg *cfg,
 	return false;
 }
 
+static bool viommu_parse_plat(struct resource *mem, union viommu_topo_cfg *cfg,
+			      u32 *epid)
+{
+	u16 type = le16_to_cpu(cfg->type);
+
+	if (type == VIRTIO_IOMMU_TOPO_ENDPOINT) {
+		u64 addr = le64_to_cpu(cfg->ep.address);
+		u32 endpoint_id = le32_to_cpu(cfg->ep.endpoint);
+
+		if (addr == mem->start) {
+			*epid = endpoint_id;
+			return true;
+		}
+	}
+	return false;
+}
+
 static const struct iommu_ops *virt_iommu_setup(struct device *dev)
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
@@ -263,6 +281,7 @@ static const struct iommu_ops *virt_iommu_setup(struct device *dev)
 	struct fwnode_handle *viommu_fwnode;
 	struct viommu_spec *viommu_spec;
 	struct pci_dev *pci_dev = NULL;
+	struct resource *mem = NULL;
 	struct device *viommu_dev;
 	bool found = false;
 	size_t i;
@@ -275,6 +294,12 @@ static const struct iommu_ops *virt_iommu_setup(struct device *dev)
 
 	if (dev_is_pci(dev)) {
 		pci_dev = to_pci_dev(dev);
+	} else if (dev_is_platform(dev)) {
+		struct platform_device *plat_dev = to_platform_device(dev);
+
+		mem = platform_get_resource(plat_dev, IORESOURCE_MEM, 0);
+		if (!mem)
+			return false;
 	} else {
 		return false;
 	}
@@ -284,7 +309,8 @@ static const struct iommu_ops *virt_iommu_setup(struct device *dev)
 		for (i = 0; i < viommu_spec->num_items; i++) {
 			union viommu_topo_cfg *cfg = &viommu_spec->cfg[i];
 
-			found = viommu_parse_pci(pci_dev, cfg, &epid);
+			found = pci_dev ? viommu_parse_pci(pci_dev, cfg, &epid) :
+					  viommu_parse_plat(mem, cfg, &epid);
 			if (found)
 				break;
 		}
