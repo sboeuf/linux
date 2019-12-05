@@ -10,7 +10,9 @@
 #include <linux/platform_device.h>
 #include <linux/printk.h>
 #include <linux/virtio_config.h>
+#include <linux/virtio_ids.h>
 #include <linux/virtio_iommu.h>
+#include <linux/virtio_mmio.h>
 #include <linux/virtio_pci.h>
 #include <uapi/linux/virtio_iommu.h>
 
@@ -117,6 +119,11 @@ static u32 viommu_pci_readl(void *cookie, u32 offset)
 
 	pci_read_config_dword(ctx->pdev, out, &val);
 	return val;
+}
+
+static u32 viommu_mmio_readl(void *base, u32 offset)
+{
+	return readl(base + offset);
 }
 
 static void viommu_ccopy(viommu_readl_fn readl_fn, void *ctx,
@@ -231,6 +238,74 @@ static void viommu_pci_parse_topology(struct pci_dev *dev)
 
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_REDHAT_QUMRANET, 0x1014,
 			viommu_pci_parse_topology);
+
+static int viommu_platform_bus_notify(struct notifier_block *nb,
+				      unsigned long action, void *data)
+{
+	struct platform_device *pdev;
+	struct device *dev = data;
+	__le32 id, features;
+	struct resource *mem;
+	void __iomem *base;
+
+	if (action != BUS_NOTIFY_ADD_DEVICE)
+		return NOTIFY_DONE;
+
+	pdev = to_platform_device(dev);
+
+	/*
+	 * First, is it a virtio-mmio device? We only care about the
+	 * command-line method for instantiating virtio-mmio devices (since DT
+	 * and ACPI have their own topology, so we match by device name.
+	 */
+	if (strcmp(pdev->name, "virtio-mmio"))
+		return NOTIFY_DONE;
+
+	/*
+	 * Great, is it a virtio-iommu? To figure this out, we need to read the
+	 * config space.
+	 */
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!mem)
+		return NOTIFY_DONE;
+
+	if (!devm_request_mem_region(dev, mem->start, resource_size(mem),
+				     pdev->name)) {
+		dev_err(dev, "could not request MMIO region\n");
+		return NOTIFY_DONE;
+	}
+
+	base = devm_ioremap(dev, mem->start, resource_size(mem));
+	if (base == NULL)
+		goto out_release_region;
+
+	id = readl(base + VIRTIO_MMIO_DEVICE_ID);
+	if (id != VIRTIO_ID_IOMMU)
+		goto out_unmap;
+
+	writel(0, base + VIRTIO_MMIO_DEVICE_FEATURES_SEL);
+	features = readl(base + VIRTIO_MMIO_DEVICE_FEATURES);
+	if (!(le32_to_cpu(features) & VIRTIO_IOMMU_F_TOPOLOGY))
+		goto out_unmap;
+
+	viommu_parse_topology(dev, viommu_mmio_readl, base +
+			      VIRTIO_MMIO_CONFIG);
+out_unmap:
+	devm_iounmap(dev, base);
+out_release_region:
+	devm_release_mem_region(dev, mem->start, resource_size(mem));
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block viommu_platform_bus_notifier = {
+	.notifier_call = viommu_platform_bus_notify,
+};
+
+static int __init viommu_topology_init(void)
+{
+	return bus_register_notifier(&platform_bus_type, &viommu_platform_bus_notifier);
+}
+subsys_initcall(viommu_topology_init);
 
 /*
  * Return true if the device matches this topology structure. Write the endpoint
