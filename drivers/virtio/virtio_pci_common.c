@@ -309,6 +309,7 @@ static int vp_find_vqs_msix(struct virtio_device *vdev, unsigned nvqs,
 	vp_dev->per_vq_vectors = per_vq_vectors;
 	allocated_vectors = vp_dev->msix_used_vectors;
 	for (i = 0; i < nvqs; ++i) {
+		pr_err("vp_find_vqs_msix() 1");
 		if (!names[i]) {
 			vqs[i] = NULL;
 			continue;
@@ -331,6 +332,7 @@ static int vp_find_vqs_msix(struct virtio_device *vdev, unsigned nvqs,
 		if (!vp_dev->per_vq_vectors || msix_vec == VIRTIO_MSI_NO_VECTOR)
 			continue;
 
+		pr_err("vp_find_vqs_msix() 2");
 		/* allocate per-vq irq if available and necessary */
 		snprintf(vp_dev->msix_names[msix_vec],
 			 sizeof *vp_dev->msix_names,
@@ -396,14 +398,19 @@ int vp_find_vqs(struct virtio_device *vdev, unsigned nvqs,
 {
 	int err;
 
+	pr_err("vp_find_vqs() 1");
 	/* Try MSI-X with one vector per queue. */
 	err = vp_find_vqs_msix(vdev, nvqs, vqs, callbacks, names, true, ctx, desc);
 	if (!err)
 		return 0;
+
+	pr_err("vp_find_vqs() 2");
 	/* Fallback: MSI-X with one vector for config, one shared for queues. */
 	err = vp_find_vqs_msix(vdev, nvqs, vqs, callbacks, names, false, ctx, desc);
 	if (!err)
 		return 0;
+
+	pr_err("vp_find_vqs() 3");
 	/* Finally fall back to regular interrupts. */
 	return vp_find_vqs_intx(vdev, nvqs, vqs, callbacks, names, ctx);
 }

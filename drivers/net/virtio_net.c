@@ -2782,6 +2782,7 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
 
 	/* Parameters for control virtqueue, if any */
 	if (vi->has_cvq) {
+		pr_err("virtnet_find_vqs(): CTL_QUEUE detected");
 		callbacks[total_vqs - 1] = NULL;
 		names[total_vqs - 1] = "control";
 	}
