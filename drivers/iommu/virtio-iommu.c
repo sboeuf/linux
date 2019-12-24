@@ -24,8 +24,11 @@
 #include <linux/virtio_ids.h>
 #include <linux/virtio_iommu.h>
 #include <linux/wait.h>
+#include <asm/irq_remapping.h>
 
 #include <uapi/linux/virtio_iommu.h>
+
+#include "irq_remapping.h"
 
 #define MSI_IOVA_BASE			0x8000000
 #define MSI_IOVA_LENGTH			0x100000
@@ -55,6 +58,9 @@ struct viommu_dev {
 	u32				map_flags;
 	u32				probe_size;
 };
+
+struct irq_domain *ir_domain;
+struct irq_domain *ir_msi_domain;
 
 struct viommu_mapping {
 	phys_addr_t			paddr;
@@ -977,6 +983,218 @@ static struct iommu_ops viommu_ops = {
 	.put_resv_regions	= viommu_put_resv_regions,
 	.of_xlate		= viommu_of_xlate,
 };
+
+/* IRTE API */
+
+static int viommu_irq_remapping_alloc(struct irq_domain *domain,
+				     unsigned int virq, unsigned int nr_irqs,
+				     void *arg)
+{
+	pr_info("%s", __func__);
+
+	struct irq_alloc_info *info = arg;
+	struct irq_data *irq_data;
+	struct amd_ir_data *data = NULL;
+	struct irq_cfg *cfg;
+	int i, ret, devid;
+	int index;
+
+	if (!info)
+		return -EINVAL;
+	if (nr_irqs > 1 && info->type != X86_IRQ_ALLOC_TYPE_MSI &&
+	    info->type != X86_IRQ_ALLOC_TYPE_MSIX)
+		return -EINVAL;
+
+	/*
+	 * With IRQ remapping enabled, don't need contiguous CPU vectors
+	 * to support multiple MSI interrupts.
+	 */
+	if (info->type == X86_IRQ_ALLOC_TYPE_MSI)
+		info->flags &= ~X86_IRQ_ALLOC_CONTIGUOUS_VECTORS;
+
+	devid = get_devid(info);
+	if (devid < 0)
+		return -EINVAL;
+
+	ret = irq_domain_alloc_irqs_parent(domain, virq, nr_irqs, arg);
+	if (ret < 0)
+		return ret;
+
+	if (info->type == X86_IRQ_ALLOC_TYPE_IOAPIC) {
+		struct irq_remap_table *table;
+		struct amd_iommu *iommu;
+
+		table = alloc_irq_table(devid, NULL);
+		if (table) {
+			if (!table->min_index) {
+				/*
+				 * Keep the first 32 indexes free for IOAPIC
+				 * interrupts.
+				 */
+				table->min_index = 32;
+				iommu = amd_iommu_rlookup_table[devid];
+				for (i = 0; i < 32; ++i)
+					iommu->irte_ops->set_allocated(table, i);
+			}
+			WARN_ON(table->min_index != 32);
+			index = info->ioapic_pin;
+		} else {
+			index = -ENOMEM;
+		}
+	} else if (info->type == X86_IRQ_ALLOC_TYPE_MSI ||
+		   info->type == X86_IRQ_ALLOC_TYPE_MSIX) {
+		bool align = (info->type == X86_IRQ_ALLOC_TYPE_MSI);
+
+		index = alloc_irq_index(devid, nr_irqs, align, info->msi_dev);
+	} else {
+		index = alloc_irq_index(devid, nr_irqs, false, NULL);
+	}
+
+	if (index < 0) {
+		pr_warn("Failed to allocate IRTE\n");
+		ret = index;
+		goto out_free_parent;
+	}
+
+	for (i = 0; i < nr_irqs; i++) {
+		irq_data = irq_domain_get_irq_data(domain, virq + i);
+		cfg = irqd_cfg(irq_data);
+		if (!irq_data || !cfg) {
+			ret = -EINVAL;
+			goto out_free_data;
+		}
+
+		ret = -ENOMEM;
+		data = kzalloc(sizeof(*data), GFP_KERNEL);
+		if (!data)
+			goto out_free_data;
+
+		if (!AMD_IOMMU_GUEST_IR_GA(amd_iommu_guest_ir))
+			data->entry = kzalloc(sizeof(union irte), GFP_KERNEL);
+		else
+			data->entry = kzalloc(sizeof(struct irte_ga),
+						     GFP_KERNEL);
+		if (!data->entry) {
+			kfree(data);
+			goto out_free_data;
+		}
+
+		irq_data->hwirq = (devid << 16) + i;
+		irq_data->chip_data = data;
+		irq_data->chip = &amd_ir_chip;
+		irq_remapping_prepare_irte(data, cfg, info, devid, index, i);
+		irq_set_status_flags(virq + i, IRQ_MOVE_PCNTXT);
+	}
+
+	return 0;
+
+out_free_data:
+	for (i--; i >= 0; i--) {
+		irq_data = irq_domain_get_irq_data(domain, virq + i);
+		if (irq_data)
+			kfree(irq_data->chip_data);
+	}
+	for (i = 0; i < nr_irqs; i++)
+		free_irte(devid, index + i);
+out_free_parent:
+	irq_domain_free_irqs_common(domain, virq, nr_irqs);
+	return ret;
+}
+
+static void viommu_irq_remapping_free(struct irq_domain *domain,
+				     unsigned int virq, unsigned int nr_irqs)
+{
+	pr_info("%s", __func__);
+}
+
+static int viommu_irq_remapping_activate(struct irq_domain *domain,
+					struct irq_data *irq_data, bool reserve)
+{
+	pr_info("%s", __func__);
+	return 0;
+}
+
+static void viommu_irq_remapping_deactivate(struct irq_domain *domain,
+					   struct irq_data *irq_data)
+{
+	pr_info("%s", __func__);
+}
+
+static const struct irq_domain_ops viommu_ir_domain_ops = {
+	.alloc = viommu_irq_remapping_alloc,
+	.free = viommu_irq_remapping_free,
+	.activate = viommu_irq_remapping_activate,
+	.deactivate = viommu_irq_remapping_deactivate,
+};
+
+static int viommu_setup_irq_remapping(void)
+{
+	struct fwnode_handle *fn;
+
+	pr_info("%s", __func__);
+
+	fn = irq_domain_alloc_named_fwnode("VIOMMU-IR");
+	if (!fn)
+		return -ENOMEM;
+	ir_domain = irq_domain_create_tree(fn, &viommu_ir_domain_ops, NULL);
+	irq_domain_free_fwnode(fn);
+	if (!ir_domain)
+		return -ENOMEM;
+
+	ir_domain->parent = arch_get_ir_parent_domain();
+	ir_msi_domain = arch_create_remap_msi_irq_domain(ir_domain,
+							     "VIOMMU-IR-MSI",
+							     0);
+	return 0;
+}
+
+static int __init viommu_prepare_irq_remapping(void) {
+	pr_info("%s", __func__);
+	return viommu_setup_irq_remapping();
+}
+
+static int __init viommu_enable_irq_remapping(void) {
+	pr_info("%s", __func__);
+	return 0;
+}
+
+static void viommu_disable_irq_remapping(void) {
+	pr_info("%s", __func__);
+}
+
+static int viommu_reenable_irq_remapping(int mode) {
+	pr_info("%s", __func__);
+	return 0;
+}
+
+int __init viommu_enable_faulting_irq_remapping(void) {
+	pr_info("%s", __func__);
+	return 0;
+}
+
+static struct irq_domain *viommu_get_ir_irq_domain(struct irq_alloc_info *info)
+{
+	pr_info("%s", __func__);
+	return ir_domain;
+}
+
+static struct irq_domain *viommu_get_irq_domain(struct irq_alloc_info *info)
+{
+	pr_info("%s", __func__);
+	return ir_msi_domain;
+}
+
+struct irq_remap_ops viommu_irq_remap_ops = {
+	.prepare		= viommu_prepare_irq_remapping,
+	.enable			= viommu_enable_irq_remapping,
+	.disable		= viommu_disable_irq_remapping,
+	.reenable		= viommu_reenable_irq_remapping,
+	.enable_faulting	= viommu_enable_faulting_irq_remapping,
+	.get_ir_irq_domain	= viommu_get_ir_irq_domain,
+	.get_irq_domain		= viommu_get_irq_domain,
+};
+
+/* End of IRTE API */
 
 static int viommu_set_fwnode(struct viommu_dev *viommu)
 {

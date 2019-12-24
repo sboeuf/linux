@@ -50,6 +50,7 @@ struct irq_remap_ops {
 	struct irq_domain *(*get_irq_domain)(struct irq_alloc_info *);
 };
 
+extern struct irq_remap_ops viommu_irq_remap_ops;
 extern struct irq_remap_ops intel_irq_remap_ops;
 extern struct irq_remap_ops amd_iommu_irq_ops;
 extern struct irq_remap_ops hyperv_irq_remap_ops;
